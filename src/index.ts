@@ -1,7 +1,7 @@
 /**
  * This file contains a diffing algorithm that is used to update the DOM
  * inspired by the set-dom library https://github.com/DylanPiercey/set-dom
- * but using the parse-html-stream library to parse the html stream.
+ * but using streaming.
  */
 type Walker = {
   rootNode: Node | null;

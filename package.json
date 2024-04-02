@@ -1,11 +1,35 @@
 {
   "name": "diff-dom-streaming",
-  "module": "index.ts",
+  "module": "./build/index.js",
+  "main": "./build/index.js",
+  "types": "./index.d.ts",
   "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest"
+  "license": "MIT",
+  "author": {
+    "name": "Aral Roca Gòmez",
+    "email": "contact@aralroca.com"
   },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
+  "files": [
+    "build",
+    "index.d.ts"
+  ],
+  "exports": {
+    ".": {
+      "import": "./build/index.js",
+      "require": "./build/index.js",
+      "types": "./index.d.ts"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aralroca/diff-dom-streaming.git"
+  },
+  "scripts": {
+    "build": "bun build --target=browser --minify --outdir=build src/index.ts",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "typescript": "5.4.3",
+    "@types/bun": "1.0.12"
   }
 }
