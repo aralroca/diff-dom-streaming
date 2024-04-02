@@ -18,6 +18,7 @@ jobs:
           bun-version: 1.1.0
       - name: Install dependencies, build, and test
         run: bun install
+      - run: bunx playwright install
       - run: bun run build
       - run: bun run bundlewatch
       - run: bun run test

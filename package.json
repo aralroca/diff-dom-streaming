@@ -53,6 +53,7 @@
   "devDependencies": {
     "typescript": "5.4.3",
     "@types/bun": "1.0.12",
-    "bundlewatch": "0.3.3"
+    "bundlewatch": "0.3.3",
+    "playwright": "1.42.1"
   }
 }

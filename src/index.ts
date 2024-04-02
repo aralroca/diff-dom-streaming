@@ -18,7 +18,7 @@ const decoder = new TextDecoder();
 
 export default async function diff(
   oldNode: Node,
-  reader: ReadableStreamDefaultReader<Uint8Array>,
+  reader: ReadableStreamDefaultReader<unknown>,
 ) {
   const walker = await htmlStreamWalker(reader);
   const newNode = walker.rootNode!;
@@ -175,7 +175,7 @@ function getKey(node: Node) {
 }
 
 async function htmlStreamWalker(
-  streamReader: ReadableStreamDefaultReader<Uint8Array>,
+  streamReader: ReadableStreamDefaultReader<unknown>,
 ): Promise<Walker> {
   const doc = document.implementation.createHTMLDocument();
   let closed = false;
