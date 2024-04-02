@@ -1,5 +1,26 @@
 {
   "name": "diff-dom-streaming",
+  "version": "0.1.0",
+  "bugs": "https://github.com/aralroca/diff-dom-streaming/issues",
+  "description": "Diff DOM algorithm with streaming. Gets all modifications, insertions and removals between a DOM fragment and a stream HTML reader.",
+  "keywords": [
+    "brisa",
+    "typescript",
+    "streaming",
+    "stream",
+    "html",
+    "diff",
+    "dom",
+    "javascript"
+  ],
+  "bundlewatch": {
+    "files": [
+      {
+        "path": "./build/index.js",
+        "maxSize": "1.5 kB"
+      }
+    ]
+  },
   "module": "./build/index.js",
   "main": "./build/index.js",
   "types": "./index.d.ts",
@@ -26,10 +47,12 @@
   },
   "scripts": {
     "build": "bun build --target=browser --minify --outdir=build src/index.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "bundlewatch": "bundlewatch"
   },
   "devDependencies": {
     "typescript": "5.4.3",
-    "@types/bun": "1.0.12"
+    "@types/bun": "1.0.12",
+    "bundlewatch": "0.3.3"
   }
 }
