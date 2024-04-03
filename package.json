@@ -47,7 +47,7 @@
   },
   "scripts": {
     "build": "bun build --target=browser --minify --outdir=build src/index.ts",
-    "test": "bun test",
+    "test": "bun test --timeout=30000",
     "bundlewatch": "bundlewatch"
   },
   "devDependencies": {

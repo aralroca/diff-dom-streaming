@@ -7,9 +7,15 @@ import {
   it,
   expect,
 } from "bun:test";
-import { chromium, type Browser, type Page } from "playwright";
+import { chromium, firefox, webkit, type Browser, type Page } from "playwright";
 import diff from "./index";
 import { join } from "node:path";
+
+const engine: Record<string, any> = {
+  chrome: chromium,
+  firefox: firefox,
+  safari: webkit,
+};
 
 const transpiler = new Bun.Transpiler({ loader: "ts", target: "browser" });
 const diffCode = await transpiler.transform(
@@ -21,116 +27,118 @@ const diffCode = await transpiler.transform(
 const normalize = (t: string) =>
   t.replace(/\s*\n\s*/g, "").replaceAll("'", '"');
 
-describe("Diffing Algorithm with Streaming Test", () => {
-  let browser: Browser;
-  let page: Page;
+describe.each(["chrome", "firefox", "safari"])(
+  "%s -> Diff test",
+  (browserName) => {
+    let browser: Browser;
+    let page: Page;
 
-  async function testDiff({
-    oldHTMLString,
-    newHTMLStringChunks,
-  }: {
-    oldHTMLString: string;
-    newHTMLStringChunks: string[];
-  }): Promise<[string, any[]]> {
-    await page.setContent(normalize(oldHTMLString));
-    const mutations = await page.evaluate(
-      async ([diffCode, newHTMLStringChunks]) => {
-        eval(diffCode as string);
-        const encoder = new TextEncoder();
-        const readable = new ReadableStream({
-          start: (controller) => {
-            for (const chunk of newHTMLStringChunks) {
-              controller.enqueue(encoder.encode(chunk));
-            }
-            controller.close();
-          },
-        });
-        const allMutations: any[] = [];
-        const reader = readable.getReader();
-        const observer = new MutationObserver((mutations) => {
-          allMutations.push(
-            ...mutations.map((mutation, mutationIndex) => ({
-              type: mutation.type,
-              addedNodes: Array.from(mutation.addedNodes).map(
-                (node, index) => ({
-                  nodeName: node.nodeName,
-                  nodeValue: node.nodeValue,
-                  keepsExistingNodeReference: node.isSameNode(
-                    mutations[mutationIndex - 1]?.removedNodes?.[index],
-                  ),
-                }),
-              ),
-              removedNodes: Array.from(mutation.removedNodes).map(
-                (node, index) => ({
-                  nodeName: node.nodeName,
-                  nodeValue: node.nodeValue,
-                }),
-              ),
-              attributeName: mutation.attributeName,
-              tagName: (mutation.target as Element).tagName,
-              outerHTML: (mutation.target as Element).outerHTML,
-              oldValue: mutation.oldValue,
-            })),
-          );
-        });
+    async function testDiff({
+      oldHTMLString,
+      newHTMLStringChunks,
+    }: {
+      oldHTMLString: string;
+      newHTMLStringChunks: string[];
+    }): Promise<[string, any[]]> {
+      await page.setContent(normalize(oldHTMLString));
+      const mutations = await page.evaluate(
+        async ([diffCode, newHTMLStringChunks]) => {
+          eval(diffCode as string);
+          const encoder = new TextEncoder();
+          const readable = new ReadableStream({
+            start: (controller) => {
+              for (const chunk of newHTMLStringChunks) {
+                controller.enqueue(encoder.encode(chunk));
+              }
+              controller.close();
+            },
+          });
+          const allMutations: any[] = [];
+          const reader = readable.getReader();
+          const observer = new MutationObserver((mutations) => {
+            allMutations.push(
+              ...mutations.map((mutation, mutationIndex) => ({
+                type: mutation.type,
+                addedNodes: Array.from(mutation.addedNodes).map(
+                  (node, index) => ({
+                    nodeName: node.nodeName,
+                    nodeValue: node.nodeValue,
+                    keepsExistingNodeReference: node.isSameNode(
+                      mutations[mutationIndex - 1]?.removedNodes?.[index],
+                    ),
+                  }),
+                ),
+                removedNodes: Array.from(mutation.removedNodes).map(
+                  (node, index) => ({
+                    nodeName: node.nodeName,
+                    nodeValue: node.nodeValue,
+                  }),
+                ),
+                attributeName: mutation.attributeName,
+                tagName: (mutation.target as Element).tagName,
+                outerHTML: (mutation.target as Element).outerHTML,
+                oldValue: mutation.oldValue,
+              })),
+            );
+          });
 
-        observer.observe(document.documentElement, {
-          childList: true,
-          attributes: true,
-          subtree: true,
-          attributeOldValue: true,
-          characterData: true,
-          characterDataOldValue: true,
-        });
+          observer.observe(document.documentElement, {
+            childList: true,
+            attributes: true,
+            subtree: true,
+            attributeOldValue: true,
+            characterData: true,
+            characterDataOldValue: true,
+          });
 
-        await diff(document.documentElement!, reader);
+          await diff(document.documentElement!, reader);
 
-        observer.disconnect();
+          observer.disconnect();
 
-        return allMutations;
-      },
-      [diffCode, newHTMLStringChunks],
-    );
+          return allMutations;
+        },
+        [diffCode, newHTMLStringChunks],
+      );
 
-    return [
-      (await page.content()).replace(/\s*\n\s*/g, "").replaceAll("'", '"'),
-      mutations,
-    ];
-  }
+      return [
+        (await page.content()).replace(/\s*\n\s*/g, "").replaceAll("'", '"'),
+        mutations,
+      ];
+    }
 
-  beforeAll(async () => {
-    browser = await chromium.launch();
-  });
+    beforeAll(async () => {
+      browser = await engine[browserName].launch();
+    });
 
-  beforeEach(async () => {
-    page = await browser.newPage();
-  });
+    beforeEach(async () => {
+      page = await browser.newPage();
+    });
 
-  afterEach(async () => {
-    await page.close();
-  });
+    afterEach(async () => {
+      await page.close();
+    });
 
-  afterAll(async () => {
-    await browser.close();
-  });
+    afterAll(async () => {
+      await browser.close();
+    });
 
-  it("should error with invalid arguments", async () => {
-    const res = new Response('<div id="test">hello world</div>');
-    const reader = res.body!.getReader();
-    expect(() => diff("hello world" as any, reader)).toThrow(Error);
-  });
+    it("should error with invalid arguments", async () => {
+      const res = new Response('<div id="test">hello world</div>');
+      const reader = res.body!.getReader();
+      expect(() => diff("hello world" as any, reader)).toThrow(Error);
+    });
 
-  it("should not do any DOM modification", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should not do any DOM modification", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <div>
           <h1>hello world</h1>
         </div>
       `,
-      newHTMLStringChunks: ["<div>", "<h1>hello world</h1>", "</div>"],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: ["<div>", "<h1>hello world</h1>", "</div>"],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -140,13 +148,13 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
-    expect(mutations).toBeEmpty();
-  });
+      );
+      expect(mutations).toBeEmpty();
+    });
 
-  it("should replace only the body content", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should replace only the body content", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <html>
           <head></head>
           <body>
@@ -154,10 +162,10 @@ describe("Diffing Algorithm with Streaming Test", () => {
           </body>
         </html>
       `,
-      newHTMLStringChunks: ["something else"],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: ["something else"],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -165,34 +173,34 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
-    expect(mutations).toEqual([
-      {
-        addedNodes: [
-          {
-            nodeName: "#text",
-            nodeValue: "something else",
-            keepsExistingNodeReference: false,
-          },
-        ],
-        attributeName: null,
-        oldValue: null,
-        outerHTML: "<body>something else</body>",
-        removedNodes: [
-          {
-            nodeName: "DIV",
-            nodeValue: null,
-          },
-        ],
-        tagName: "BODY",
-        type: "childList",
-      },
-    ]);
-  });
+      );
+      expect(mutations).toEqual([
+        {
+          addedNodes: [
+            {
+              nodeName: "#text",
+              nodeValue: "something else",
+              keepsExistingNodeReference: false,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML: "<body>something else</body>",
+          removedNodes: [
+            {
+              nodeName: "DIV",
+              nodeValue: null,
+            },
+          ],
+          tagName: "BODY",
+          type: "childList",
+        },
+      ]);
+    });
 
-  it("should update only one element of the body", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should update only one element of the body", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <html>
           <head></head>
           <body>
@@ -201,15 +209,15 @@ describe("Diffing Algorithm with Streaming Test", () => {
           </body>
         </html>
       `,
-      newHTMLStringChunks: [
-        "<h1>TEST</h1>",
-        '<div id="test">',
-        "New Node Content",
-        "</div>",
-      ],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: [
+          "<h1>TEST</h1>",
+          '<div id="test">',
+          "New Node Content",
+          "</div>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -218,27 +226,27 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: "Old Node Content",
-        outerHTML: undefined,
-        removedNodes: [],
-        tagName: undefined,
-        type: "characterData",
-      },
-    ]);
-  });
-
-  it("should diff attributes", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `<div></div>`,
-      newHTMLStringChunks: ['<div a="1" b="2">', "</div>"],
+      );
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "Old Node Content",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+      ]);
     });
-    expect(newHTML).toBe(
-      normalize(`
+
+    it("should diff attributes", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `<div></div>`,
+        newHTMLStringChunks: ['<div a="1" b="2">', "</div>"],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -246,42 +254,42 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
+      );
 
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: "b",
-        oldValue: null,
-        outerHTML: '<div b="2" a="1"></div>',
-        removedNodes: [],
-        tagName: "DIV",
-        type: "attributes",
-      },
-      {
-        addedNodes: [],
-        attributeName: "a",
-        oldValue: null,
-        outerHTML: '<div b="2" a="1"></div>',
-        removedNodes: [],
-        tagName: "DIV",
-        type: "attributes",
-      },
-    ]);
-  });
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: "b",
+          oldValue: null,
+          outerHTML: '<div b="2" a="1"></div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "attributes",
+        },
+        {
+          addedNodes: [],
+          attributeName: "a",
+          oldValue: null,
+          outerHTML: '<div b="2" a="1"></div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "attributes",
+        },
+      ]);
+    });
 
-  it("should diff nodeValue", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should diff nodeValue", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <div>
           text a
           text b
         </div>
       `,
-      newHTMLStringChunks: ["<div>", "text a", "text c", "</div>"],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: ["<div>", "text a", "text c", "</div>"],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -292,39 +300,39 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
+      );
 
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: "text atext b",
-        outerHTML: undefined,
-        removedNodes: [],
-        tagName: undefined,
-        type: "characterData",
-      },
-    ]);
-  });
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "text atext b",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+      ]);
+    });
 
-  it("should diff children", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should diff children", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <div>
           <a href="link">hello</a>
           <b>text</b>
           <i>text2</i>
         </div>
       `,
-      newHTMLStringChunks: [
-        "<div>",
-        '<a href="link2">hello2</a>',
-        "<i>text1</i>",
-        "</div>",
-      ],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: [
+          "<div>",
+          '<a href="link2">hello2</a>',
+          "<i>text1</i>",
+          "</div>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -335,99 +343,99 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: "hello",
-        outerHTML: undefined,
-        removedNodes: [],
-        tagName: undefined,
-        type: "characterData",
-      },
-      {
-        addedNodes: [],
-        attributeName: "href",
-        oldValue: "link",
-        outerHTML: '<a href="link2">hello2</a>',
-        removedNodes: [],
-        tagName: "A",
-        type: "attributes",
-      },
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: "text",
-        outerHTML: undefined,
-        removedNodes: [],
-        tagName: undefined,
-        type: "characterData",
-      },
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: null,
-        outerHTML: "<b></b>",
-        removedNodes: [
-          {
-            nodeName: "#text",
-            nodeValue: "text1",
-          },
-        ],
-        tagName: "B",
-        type: "childList",
-      },
-      {
-        addedNodes: [
-          {
-            nodeName: "I",
-            nodeValue: null,
-            keepsExistingNodeReference: false,
-          },
-        ],
-        attributeName: null,
-        oldValue: null,
-        outerHTML:
-          '<div><a href="link2">hello2</a><i>text1</i><i>text2</i></div>',
-        removedNodes: [
-          {
-            nodeName: "B",
-            nodeValue: null,
-          },
-        ],
-        tagName: "DIV",
-        type: "childList",
-      },
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: null,
-        outerHTML: '<div><a href="link2">hello2</a><i>text1</i></div>',
-        removedNodes: [
-          {
-            nodeName: "I",
-            nodeValue: null,
-          },
-        ],
-        tagName: "DIV",
-        type: "childList",
-      },
-    ]);
-  });
+      );
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "hello",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: "href",
+          oldValue: "link",
+          outerHTML: '<a href="link2">hello2</a>',
+          removedNodes: [],
+          tagName: "A",
+          type: "attributes",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "text",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML: "<b></b>",
+          removedNodes: [
+            {
+              nodeName: "#text",
+              nodeValue: "text1",
+            },
+          ],
+          tagName: "B",
+          type: "childList",
+        },
+        {
+          addedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+              keepsExistingNodeReference: false,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link2">hello2</a><i>text1</i><i>text2</i></div>',
+          removedNodes: [
+            {
+              nodeName: "B",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML: '<div><a href="link2">hello2</a><i>text1</i></div>',
+          removedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+      ]);
+    });
 
-  it("should diff children (id)", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should diff children (id)", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <div>
           <b>text</b>
           <i id="test">text2</i>
         </div>
       `,
-      newHTMLStringChunks: ["<div>", '<i id="test">text1</i>', "</div>"],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: ["<div>", '<i id="test">text1</i>', "</div>"],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -437,82 +445,82 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
+      );
 
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: null,
-        outerHTML: `<div><i id="test">text2</i><b>text</b></div>`,
-        removedNodes: [
-          {
-            nodeName: "I",
-            nodeValue: null,
-          },
-        ],
-        tagName: "DIV",
-        type: "childList",
-      },
-      {
-        addedNodes: [
-          {
-            nodeName: "I",
-            nodeValue: null,
-            keepsExistingNodeReference: true,
-          },
-        ],
-        attributeName: null,
-        oldValue: null,
-        outerHTML: `<div><i id="test">text2</i><b>text</b></div>`,
-        removedNodes: [],
-        tagName: "DIV",
-        type: "childList",
-      },
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: "text2",
-        outerHTML: undefined,
-        removedNodes: [],
-        tagName: undefined,
-        type: "characterData",
-      },
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: null,
-        outerHTML: `<div><i id="test">text1</i></div>`,
-        removedNodes: [
-          {
-            nodeName: "B",
-            nodeValue: null,
-          },
-        ],
-        tagName: "DIV",
-        type: "childList",
-      },
-    ]);
-  });
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML: `<div><i id="test">text2</i><b>text</b></div>`,
+          removedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+              keepsExistingNodeReference: true,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML: `<div><i id="test">text2</i><b>text</b></div>`,
+          removedNodes: [],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "text2",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML: `<div><i id="test">text1</i></div>`,
+          removedNodes: [
+            {
+              nodeName: "B",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+      ]);
+    });
 
-  it("should diff children (key) move by deleting", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should diff children (key) move by deleting", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <div>
           <a href="link">hello</a>
           <b>text</b>
           <i key="test">text2</i>
         </div>
       `,
-      newHTMLStringChunks: [
-        "<div>",
-        '<a href="link2">hello2</a>',
-        '<i key="test">text1</i>',
-        "</div>",
-      ],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: [
+          "<div>",
+          '<a href="link2">hello2</a>',
+          '<i key="test">text1</i>',
+          "</div>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -523,104 +531,104 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
+      );
 
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: "hello",
-        outerHTML: undefined,
-        removedNodes: [],
-        tagName: undefined,
-        type: "characterData",
-      },
-      {
-        addedNodes: [],
-        attributeName: "href",
-        oldValue: "link",
-        outerHTML: '<a href="link2">hello2</a>',
-        removedNodes: [],
-        tagName: "A",
-        type: "attributes",
-      },
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: null,
-        outerHTML:
-          '<div><a href="link2">hello2</a><i key="test">text2</i><b>text</b></div>',
-        removedNodes: [
-          {
-            nodeName: "I",
-            nodeValue: null,
-          },
-        ],
-        tagName: "DIV",
-        type: "childList",
-      },
-      {
-        addedNodes: [
-          {
-            nodeName: "I",
-            nodeValue: null,
-            keepsExistingNodeReference: true,
-          },
-        ],
-        attributeName: null,
-        oldValue: null,
-        outerHTML:
-          '<div><a href="link2">hello2</a><i key="test">text2</i><b>text</b></div>',
-        removedNodes: [],
-        tagName: "DIV",
-        type: "childList",
-      },
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: "text2",
-        outerHTML: undefined,
-        removedNodes: [],
-        tagName: undefined,
-        type: "characterData",
-      },
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: null,
-        outerHTML:
-          '<div><a href="link2">hello2</a><i key="test">text1</i></div>',
-        removedNodes: [
-          {
-            nodeName: "B",
-            nodeValue: null,
-          },
-        ],
-        tagName: "DIV",
-        type: "childList",
-      },
-    ]);
-  });
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "hello",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: "href",
+          oldValue: "link",
+          outerHTML: '<a href="link2">hello2</a>',
+          removedNodes: [],
+          tagName: "A",
+          type: "attributes",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link2">hello2</a><i key="test">text2</i><b>text</b></div>',
+          removedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+              keepsExistingNodeReference: true,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link2">hello2</a><i key="test">text2</i><b>text</b></div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "text2",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link2">hello2</a><i key="test">text1</i></div>',
+          removedNodes: [
+            {
+              nodeName: "B",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+      ]);
+    });
 
-  it("should diff children (key) move by shuffling", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should diff children (key) move by shuffling", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <div>
           <a href="link">hello</a>
           <b key="test1">text</b>
           <i key="test2">text2</i>
         </div>
       `,
-      newHTMLStringChunks: [
-        "<div>",
-        '<a href="link">hello</a>',
-        '<i key="test2">text2</i>',
-        '<b key="test1">text</b>',
-        "</div>",
-      ],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: [
+          "<div>",
+          '<a href="link">hello</a>',
+          '<i key="test2">text2</i>',
+          '<b key="test1">text</b>',
+          "</div>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -632,56 +640,56 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
+      );
 
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: null,
-        outerHTML:
-          '<div><a href="link">hello</a><i key="test2">text2</i><b key="test1">text</b></div>',
-        removedNodes: [
-          {
-            nodeName: "I",
-            nodeValue: null,
-          },
-        ],
-        tagName: "DIV",
-        type: "childList",
-      },
-      {
-        addedNodes: [
-          {
-            nodeName: "I",
-            nodeValue: null,
-            keepsExistingNodeReference: true,
-          },
-        ],
-        attributeName: null,
-        oldValue: null,
-        outerHTML:
-          '<div><a href="link">hello</a><i key="test2">text2</i><b key="test1">text</b></div>',
-        removedNodes: [],
-        tagName: "DIV",
-        type: "childList",
-      },
-    ]);
-  });
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link">hello</a><i key="test2">text2</i><b key="test1">text</b></div>',
+          removedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+              keepsExistingNodeReference: true,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link">hello</a><i key="test2">text2</i><b key="test1">text</b></div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "childList",
+        },
+      ]);
+    });
 
-  it("should diff children (key) remove", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should diff children (key) remove", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <div>
           <a href="link">hello</a>
           <b>text</b>
           <i key="test">text2</i>
         </div>
       `,
-      newHTMLStringChunks: ["<div>", '<a href="link2">hello2</a>', "</div>"],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: ["<div>", '<a href="link2">hello2</a>', "</div>"],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -691,75 +699,75 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: "hello",
-        outerHTML: undefined,
-        removedNodes: [],
-        tagName: undefined,
-        type: "characterData",
-      },
-      {
-        addedNodes: [],
-        attributeName: "href",
-        oldValue: "link",
-        outerHTML: '<a href="link2">hello2</a>',
-        removedNodes: [],
-        tagName: "A",
-        type: "attributes",
-      },
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: null,
-        outerHTML: '<div><a href="link2">hello2</a></div>',
-        removedNodes: [
-          {
-            nodeName: "I",
-            nodeValue: null,
-          },
-        ],
-        tagName: "DIV",
-        type: "childList",
-      },
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: null,
-        outerHTML: '<div><a href="link2">hello2</a></div>',
-        removedNodes: [
-          {
-            nodeName: "B",
-            nodeValue: null,
-          },
-        ],
-        tagName: "DIV",
-        type: "childList",
-      },
-    ]);
-  });
+      );
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "hello",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: "href",
+          oldValue: "link",
+          outerHTML: '<a href="link2">hello2</a>',
+          removedNodes: [],
+          tagName: "A",
+          type: "attributes",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML: '<div><a href="link2">hello2</a></div>',
+          removedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML: '<div><a href="link2">hello2</a></div>',
+          removedNodes: [
+            {
+              nodeName: "B",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+      ]);
+    });
 
-  it("should diff children (key) insert new node", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should diff children (key) insert new node", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <div>
           <a href="link">hello</a>
           <i key="test">text2</i>
         </div>
       `,
-      newHTMLStringChunks: [
-        "<div>",
-        '<a href="link2">hello2</a>',
-        "<b>test</b>",
-        '<i key="test">text2</i>',
-        "</div>",
-      ],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: [
+          "<div>",
+          '<a href="link2">hello2</a>',
+          "<b>test</b>",
+          '<i key="test">text2</i>',
+          "</div>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -771,95 +779,95 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
+      );
 
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: "hello",
-        outerHTML: undefined,
-        removedNodes: [],
-        tagName: undefined,
-        type: "characterData",
-      },
-      {
-        addedNodes: [],
-        attributeName: "href",
-        oldValue: "link",
-        outerHTML: '<a href="link2">hello2</a>',
-        removedNodes: [],
-        tagName: "A",
-        type: "attributes",
-      },
-      {
-        addedNodes: [
-          {
-            keepsExistingNodeReference: false,
-            nodeName: "B",
-            nodeValue: null,
-          },
-        ],
-        attributeName: null,
-        oldValue: null,
-        outerHTML:
-          '<div><a href="link2">hello2</a><b>test</b><i key="test">text2</i></div>',
-        removedNodes: [],
-        tagName: "DIV",
-        type: "childList",
-      },
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: null,
-        outerHTML:
-          '<div><a href="link2">hello2</a><b>test</b><i key="test">text2</i></div>',
-        removedNodes: [
-          {
-            nodeName: "I",
-            nodeValue: null,
-          },
-        ],
-        tagName: "DIV",
-        type: "childList",
-      },
-      {
-        addedNodes: [
-          {
-            keepsExistingNodeReference: true,
-            nodeName: "I",
-            nodeValue: null,
-          },
-        ],
-        attributeName: null,
-        oldValue: null,
-        outerHTML:
-          '<div><a href="link2">hello2</a><b>test</b><i key="test">text2</i></div>',
-        removedNodes: [],
-        tagName: "DIV",
-        type: "childList",
-      },
-    ]);
-  });
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "hello",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: "href",
+          oldValue: "link",
+          outerHTML: '<a href="link2">hello2</a>',
+          removedNodes: [],
+          tagName: "A",
+          type: "attributes",
+        },
+        {
+          addedNodes: [
+            {
+              keepsExistingNodeReference: false,
+              nodeName: "B",
+              nodeValue: null,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link2">hello2</a><b>test</b><i key="test">text2</i></div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link2">hello2</a><b>test</b><i key="test">text2</i></div>',
+          removedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [
+            {
+              keepsExistingNodeReference: true,
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link2">hello2</a><b>test</b><i key="test">text2</i></div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "childList",
+        },
+      ]);
+    });
 
-  it("should diff children (key) with xhtml namespaceURI", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should diff children (key) with xhtml namespaceURI", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <div xmlns="http://www.w3.org/1999/xhtml">
           <a href="link">hello</a>
           <b>text</b>
           <i key="test">text2</i>
         </div>
       `,
-      newHTMLStringChunks: [
-        '<div xmlns="http://www.w3.org/1999/xhtml">',
-        '<a href="link2">hello2</a>',
-        '<i key="test">text1</i>',
-        "</div>",
-      ],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: [
+          '<div xmlns="http://www.w3.org/1999/xhtml">',
+          '<a href="link2">hello2</a>',
+          '<i key="test">text1</i>',
+          "</div>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -870,104 +878,104 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
+      );
 
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: "hello",
-        outerHTML: undefined,
-        removedNodes: [],
-        tagName: undefined,
-        type: "characterData",
-      },
-      {
-        addedNodes: [],
-        attributeName: "href",
-        oldValue: "link",
-        outerHTML: '<a href="link2">hello2</a>',
-        removedNodes: [],
-        tagName: "A",
-        type: "attributes",
-      },
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: null,
-        outerHTML:
-          '<div xmlns="http://www.w3.org/1999/xhtml"><a href="link2">hello2</a><i key="test">text2</i><b>text</b></div>',
-        removedNodes: [
-          {
-            nodeName: "I",
-            nodeValue: null,
-          },
-        ],
-        tagName: "DIV",
-        type: "childList",
-      },
-      {
-        addedNodes: [
-          {
-            keepsExistingNodeReference: true,
-            nodeName: "I",
-            nodeValue: null,
-          },
-        ],
-        attributeName: null,
-        oldValue: null,
-        outerHTML:
-          '<div xmlns="http://www.w3.org/1999/xhtml"><a href="link2">hello2</a><i key="test">text2</i><b>text</b></div>',
-        removedNodes: [],
-        tagName: "DIV",
-        type: "childList",
-      },
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: "text2",
-        outerHTML: undefined,
-        removedNodes: [],
-        tagName: undefined,
-        type: "characterData",
-      },
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: null,
-        outerHTML:
-          '<div xmlns="http://www.w3.org/1999/xhtml"><a href="link2">hello2</a><i key="test">text1</i></div>',
-        removedNodes: [
-          {
-            nodeName: "B",
-            nodeValue: null,
-          },
-        ],
-        tagName: "DIV",
-        type: "childList",
-      },
-    ]);
-  });
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "hello",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: "href",
+          oldValue: "link",
+          outerHTML: '<a href="link2">hello2</a>',
+          removedNodes: [],
+          tagName: "A",
+          type: "attributes",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div xmlns="http://www.w3.org/1999/xhtml"><a href="link2">hello2</a><i key="test">text2</i><b>text</b></div>',
+          removedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [
+            {
+              keepsExistingNodeReference: true,
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div xmlns="http://www.w3.org/1999/xhtml"><a href="link2">hello2</a><i key="test">text2</i><b>text</b></div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "text2",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div xmlns="http://www.w3.org/1999/xhtml"><a href="link2">hello2</a><i key="test">text1</i></div>',
+          removedNodes: [
+            {
+              nodeName: "B",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+      ]);
+    });
 
-  it("should diff children (key) move (custom attribute)", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should diff children (key) move (custom attribute)", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <div>
           <a href="link">hello</a>
           <b key="test1">text</b>
           <i key="test2">text2</i>
         </div>
       `,
-      newHTMLStringChunks: [
-        "<div>",
-        '<a href="link">hello</a>',
-        '<i key="test2">text2</i>',
-        '<b key="test1">text</b>',
-        "</div>",
-      ],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: [
+          "<div>",
+          '<a href="link">hello</a>',
+          '<i key="test2">text2</i>',
+          '<b key="test1">text</b>',
+          "</div>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -979,46 +987,46 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
+      );
 
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: null,
-        outerHTML:
-          '<div><a href="link">hello</a><i key="test2">text2</i><b key="test1">text</b></div>',
-        removedNodes: [
-          {
-            nodeName: "I",
-            nodeValue: null,
-          },
-        ],
-        tagName: "DIV",
-        type: "childList",
-      },
-      {
-        addedNodes: [
-          {
-            nodeName: "I",
-            nodeValue: null,
-            keepsExistingNodeReference: true,
-          },
-        ],
-        attributeName: null,
-        oldValue: null,
-        outerHTML:
-          '<div><a href="link">hello</a><i key="test2">text2</i><b key="test1">text</b></div>',
-        removedNodes: [],
-        tagName: "DIV",
-        type: "childList",
-      },
-    ]);
-  });
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link">hello</a><i key="test2">text2</i><b key="test1">text</b></div>',
+          removedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+              keepsExistingNodeReference: true,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link">hello</a><i key="test2">text2</i><b key="test1">text</b></div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "childList",
+        },
+      ]);
+    });
 
-  it("should only replace the lang attribute of the HTML tag", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should only replace the lang attribute of the HTML tag", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <html lang="en">
           <head></head>
           <body>
@@ -1026,17 +1034,17 @@ describe("Diffing Algorithm with Streaming Test", () => {
           </body>
         </html>
       `,
-      newHTMLStringChunks: [
-        '<html lang="es">',
-        "<head></head>",
-        "<body>",
-        "<div>hello world</div>",
-        "</body>",
-        "</html>",
-      ],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: [
+          '<html lang="es">',
+          "<head></head>",
+          "<body>",
+          "<div>hello world</div>",
+          "</body>",
+          "</html>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html lang="es">
         <head></head>
         <body>
@@ -1044,24 +1052,24 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: "lang",
-        oldValue: "en",
-        outerHTML:
-          '<html lang="es"><head></head><body><div>hello world</div></body></html>',
-        removedNodes: [],
-        tagName: "HTML",
-        type: "attributes",
-      },
-    ]);
-  });
+      );
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: "lang",
+          oldValue: "en",
+          outerHTML:
+            '<html lang="es"><head></head><body><div>hello world</div></body></html>',
+          removedNodes: [],
+          tagName: "HTML",
+          type: "attributes",
+        },
+      ]);
+    });
 
-  it("should only update the title content inside head", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should only update the title content inside head", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <html>
           <head>
             <title>Old Title</title>
@@ -1071,19 +1079,19 @@ describe("Diffing Algorithm with Streaming Test", () => {
           </body>
         </html>
       `,
-      newHTMLStringChunks: [
-        "<html>",
-        "<head>",
-        "<title>New Title</title>",
-        "</head>",
-        "<body>",
-        "<div>hello world</div>",
-        "</body>",
-        "</html>",
-      ],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: [
+          "<html>",
+          "<head>",
+          "<title>New Title</title>",
+          "</head>",
+          "<body>",
+          "<div>hello world</div>",
+          "</body>",
+          "</html>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head>
           <title>New Title</title>
@@ -1093,29 +1101,29 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: "Old Title",
-        outerHTML: undefined,
-        removedNodes: [],
-        tagName: undefined,
-        type: "characterData",
-      },
-    ]);
-  });
+      );
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "Old Title",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+      ]);
+    });
 
-  it("should change data-attribute", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should change data-attribute", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <div data-attribute="abc">foo</div>
       `,
-      newHTMLStringChunks: ['<div data-attribute="efg">', "foo", "</div>"],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: ['<div data-attribute="efg">', "foo", "</div>"],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -1123,35 +1131,35 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: "data-attribute",
-        oldValue: "abc",
-        outerHTML: '<div data-attribute="efg">foo</div>',
-        removedNodes: [],
-        tagName: "DIV",
-        type: "attributes",
-      },
-    ]);
-  });
+      );
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: "data-attribute",
+          oldValue: "abc",
+          outerHTML: '<div data-attribute="efg">foo</div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "attributes",
+        },
+      ]);
+    });
 
-  it("should update only the path of an SVG element", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should update only the path of an SVG element", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <svg>
           <path d="M 10 10 L 20 20"></path>
         </svg>
       `,
-      newHTMLStringChunks: [
-        "<svg>",
-        '<path d="M 20 20 L 30 30"></path>',
-        "</svg>",
-      ],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: [
+          "<svg>",
+          '<path d="M 20 20 L 30 30"></path>',
+          "</svg>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -1161,35 +1169,35 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: "d",
-        oldValue: "M 10 10 L 20 20",
-        outerHTML: '<path d="M 20 20 L 30 30"></path>',
-        removedNodes: [],
-        tagName: "path",
-        type: "attributes",
-      },
-    ]);
-  });
+      );
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: "d",
+          oldValue: "M 10 10 L 20 20",
+          outerHTML: '<path d="M 20 20 L 30 30"></path>',
+          removedNodes: [],
+          tagName: "path",
+          type: "attributes",
+        },
+      ]);
+    });
 
-  it("should diff children (data-checksum)", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should diff children (data-checksum)", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <div>
           <div class="a" data-checksum="abc">initial</div>
         </div>
       `,
-      newHTMLStringChunks: [
-        "<div>",
-        '<div class="b" data-checksum="efg">final</div>',
-        "</div>",
-      ],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: [
+          "<div>",
+          '<div class="b" data-checksum="efg">final</div>',
+          "</div>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
       <html>
         <head></head>
         <body>
@@ -1199,56 +1207,56 @@ describe("Diffing Algorithm with Streaming Test", () => {
         </body>
       </html>
     `),
-    );
-    expect(mutations).toEqual([
-      {
-        addedNodes: [],
-        attributeName: null,
-        oldValue: "initial",
-        outerHTML: undefined,
-        removedNodes: [],
-        tagName: undefined,
-        type: "characterData",
-      },
-      {
-        addedNodes: [],
-        attributeName: "data-checksum",
-        oldValue: "abc",
-        outerHTML: '<div class="b" data-checksum="efg">final</div>',
-        removedNodes: [],
-        tagName: "DIV",
-        type: "attributes",
-      },
-      {
-        addedNodes: [],
-        attributeName: "class",
-        oldValue: "a",
-        outerHTML: '<div class="b" data-checksum="efg">final</div>',
-        removedNodes: [],
-        tagName: "DIV",
-        type: "attributes",
-      },
-    ]);
-  });
+      );
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "initial",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: "data-checksum",
+          oldValue: "abc",
+          outerHTML: '<div class="b" data-checksum="efg">final</div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "attributes",
+        },
+        {
+          addedNodes: [],
+          attributeName: "class",
+          oldValue: "a",
+          outerHTML: '<div class="b" data-checksum="efg">final</div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "attributes",
+        },
+      ]);
+    });
 
-  it("should diff between an entire document and documentElement", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should diff between an entire document and documentElement", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <!DOCTYPE html>
         <html>
           <head></head>
           <body>hello foo</body>
         </html>
       `,
-      newHTMLStringChunks: [
-        "<html>",
-        "<head></head>",
-        "<body>hello bar</body>",
-        "</html>",
-      ],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: [
+          "<html>",
+          "<head></head>",
+          "<body>hello bar</body>",
+          "</html>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
         <!DOCTYPE html>
         <html>
           <head></head>
@@ -1257,39 +1265,39 @@ describe("Diffing Algorithm with Streaming Test", () => {
           </body>
         </html>
       `),
-    );
-    expect(mutations).toEqual([
-      {
-        type: "characterData",
-        addedNodes: [],
-        removedNodes: [],
-        attributeName: null,
-        tagName: undefined,
-        outerHTML: undefined,
-        oldValue: "hello foo",
-      },
-    ]);
-  });
+      );
+      expect(mutations).toEqual([
+        {
+          type: "characterData",
+          addedNodes: [],
+          removedNodes: [],
+          attributeName: null,
+          tagName: undefined,
+          outerHTML: undefined,
+          oldValue: "hello foo",
+        },
+      ]);
+    });
 
-  it("should diff between entire documents", async () => {
-    const [newHTML, mutations] = await testDiff({
-      oldHTMLString: `
+    it("should diff between entire documents", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
         <!DOCTYPE html>
         <html>
           <head></head>
           <body>hello foo</body>
         </html>
       `,
-      newHTMLStringChunks: [
-        "<!DOCTYPE html>",
-        "<html>",
-        "<head></head>",
-        "<body>hello bar</body>",
-        "</html>",
-      ],
-    });
-    expect(newHTML).toBe(
-      normalize(`
+        newHTMLStringChunks: [
+          "<!DOCTYPE html>",
+          "<html>",
+          "<head></head>",
+          "<body>hello bar</body>",
+          "</html>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
         <!DOCTYPE html>
         <html>
           <head></head>
@@ -1298,17 +1306,18 @@ describe("Diffing Algorithm with Streaming Test", () => {
           </body>
         </html>
       `),
-    );
-    expect(mutations).toEqual([
-      {
-        type: "characterData",
-        addedNodes: [],
-        removedNodes: [],
-        attributeName: null,
-        tagName: undefined,
-        outerHTML: undefined,
-        oldValue: "hello foo",
-      },
-    ]);
-  });
-});
+      );
+      expect(mutations).toEqual([
+        {
+          type: "characterData",
+          addedNodes: [],
+          removedNodes: [],
+          attributeName: null,
+          tagName: undefined,
+          outerHTML: undefined,
+          oldValue: "hello foo",
+        },
+      ]);
+    });
+  },
+);
