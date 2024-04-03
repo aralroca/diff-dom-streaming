@@ -1319,5 +1319,63 @@ describe.each(["chrome", "firefox", "safari"])(
         },
       ]);
     });
+
+    it("should don't modify if is the same node with diffent way to close the tag", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
+        <div>
+          <div></div>
+        </div>
+      `,
+        newHTMLStringChunks: ["<div>", "<div />", "</div>"],
+      });
+      expect(newHTML).toBe(
+        normalize(`
+      <html>
+        <head></head>
+        <body>
+          <div>
+            <div></div>
+          </div>
+        </body>
+      </html>
+    `),
+      );
+      expect(mutations).toEqual([]);
+    });
+
+    it("should diff and patch html strings with special chars", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
+        <div>
+          <div>hello world</div>
+        </div>
+      `,
+        newHTMLStringChunks: ["<div>", "<div>hello & world</div>", "</div>"],
+      });
+      expect(newHTML).toBe(
+        normalize(`
+      <html>
+        <head></head>
+        <body>
+          <div>
+            <div>hello &amp; world</div>
+          </div>
+        </body>
+      </html>
+    `),
+      );
+      expect(mutations).toEqual([
+        {
+          type: "characterData",
+          addedNodes: [],
+          removedNodes: [],
+          attributeName: null,
+          tagName: undefined,
+          outerHTML: undefined,
+          oldValue: "hello world",
+        },
+      ]);
+    });
   },
 );
