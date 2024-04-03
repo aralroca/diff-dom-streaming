@@ -18,7 +18,7 @@ const decoder = new TextDecoder();
 
 export default async function diff(
   oldNode: Node,
-  reader: ReadableStreamDefaultReader<unknown>,
+  reader: ReadableStreamDefaultReader,
 ) {
   const walker = await htmlStreamWalker(reader);
   const newNode = walker.rootNode!;
@@ -175,15 +175,17 @@ function getKey(node: Node) {
 }
 
 async function htmlStreamWalker(
-  streamReader: ReadableStreamDefaultReader<unknown>,
+  streamReader: ReadableStreamDefaultReader,
 ): Promise<Walker> {
   const doc = document.implementation.createHTMLDocument();
   let closed = false;
 
   doc.open();
-  await waitNextChunk();
 
-  const rootNode = closed ? null : doc.documentElement;
+  // Prevent first chunk with only <!DOCTYPE html>
+  while (!doc.documentElement) await waitNextChunk();
+
+  const rootNode = doc.documentElement;
 
   async function waitNextChunk() {
     const { done, value } = await streamReader.read();
