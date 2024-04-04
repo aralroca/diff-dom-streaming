@@ -9,3 +9,17 @@
 The Diff DOM (Document Object Model) algorithm is used to compare two versions of the DOM, such as before and after an update on a web page. It aims to efficiently identify the changes between both DOMs, minimizing the number of manipulations required to update the user interface.
 
 The Diff DOM Streaming library extends the traditional Diff DOM algorithm by introducing support for comparing a DOM node with a streaming reader. This enables the library to process the changes incrementally as they occur during the diff process.
+
+## Getting started
+
+### JSR
+
+```sh
+bunx jsr add @aralroca/diff-dom-streaming
+```
+
+Then import it:
+
+```ts
+import diff from "@aralroca/diff-dom-streaming";
+```

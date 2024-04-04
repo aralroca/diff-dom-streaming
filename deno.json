@@ -1,5 +1,20 @@
 {
   "name": "@aralroca/diff-dom-streaming",
   "version": "0.1.0",
-  "exports": "./src/index.ts"
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./index.d.ts"
+  },
+  "description": "Diff DOM algorithm with streaming. Gets all modifications, insertions and removals between a DOM fragment and a stream HTML reader.",
+  "keywords": [
+    "diff",
+    "dom",
+    "streaming",
+    "html",
+    "reader"
+  ],
+  "publish": {
+    "include": ["src", "deno.json", "mod.ts", "LICENSE", "README.md"],
+    "exclude": [".github", "examples"]
+  }
 }
