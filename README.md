@@ -23,3 +23,24 @@ Then import it:
 ```ts
 import diff from "@aralroca/diff-dom-streaming";
 ```
+
+### Npm
+
+```sh
+bun install diff-dom-streaming
+```
+
+Then import it:
+
+```ts
+import diff from "diff-dom-streaming";
+```
+
+## Using it
+
+```ts
+const res = await fetch(/* some url */);
+
+// Diff between the current document and the reader:
+await diff(document, res.body.getReader());
+```

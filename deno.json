@@ -6,13 +6,7 @@
     "./types": "./index.d.ts"
   },
   "description": "Diff DOM algorithm with streaming. Gets all modifications, insertions and removals between a DOM fragment and a stream HTML reader.",
-  "keywords": [
-    "diff",
-    "dom",
-    "streaming",
-    "html",
-    "reader"
-  ],
+  "keywords": ["diff", "dom", "streaming", "html", "reader"],
   "publish": {
     "include": ["src", "deno.json", "mod.ts", "LICENSE", "README.md"],
     "exclude": [".github", "examples"]
