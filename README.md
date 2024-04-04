@@ -6,6 +6,20 @@
         <h1 align="center">Diff DOM Streaming</h1>
 </p>
 
+[![npm version](https://badge.fury.io/js/diff-dom-streaming.svg)](https://badge.fury.io/js/diff-dom-streaming)
+![npm](https://img.shields.io/npm/dw/diff-dom-streaming)
+[![PRs Welcome][badge-prwelcome]][prwelcome]
+<a href="https://github.com/aralroca/diff-dom-streaming/actions?query=workflow%3ATest" alt="Tests status">
+<img src="https://github.com/aralroca/diff-dom-streaming/workflows/Test/badge.svg" /></a>
+<a href="https://twitter.com/intent/follow?screen_name=aralroca">
+<img src="https://img.shields.io/twitter/follow/aralroca?style=social&logo=x"
+            alt="follow on Twitter"></a>
+
+</div>
+
+[badge-prwelcome]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square
+[prwelcome]: http://makeapullrequest.com
+
 The Diff DOM (Document Object Model) algorithm is used to compare two versions of the DOM, such as before and after an update on a web page. It aims to efficiently identify the changes between both DOMs, minimizing the number of manipulations required to update the user interface.
 
 The Diff DOM Streaming library extends the traditional Diff DOM algorithm by introducing support for comparing a DOM node with a streaming reader. This enables the library to process the changes incrementally as they occur during the diff process.
