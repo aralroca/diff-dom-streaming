@@ -8,6 +8,7 @@
 
 [![npm version](https://badge.fury.io/js/diff-dom-streaming.svg)](https://badge.fury.io/js/diff-dom-streaming)
 ![npm](https://img.shields.io/npm/dw/diff-dom-streaming)
+[![size](https://img.shields.io/bundlephobia/minzip/diff-dom-streaming)]
 [![PRs Welcome][badge-prwelcome]][prwelcome]
 <a href="https://github.com/aralroca/diff-dom-streaming/actions?query=workflow%3ATest" alt="Tests status">
 <img src="https://github.com/aralroca/diff-dom-streaming/workflows/Test/badge.svg" /></a>
