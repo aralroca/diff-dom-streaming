@@ -36,18 +36,20 @@ describe.each(["chrome", "firefox", "safari"])(
     async function testDiff({
       oldHTMLString,
       newHTMLStringChunks,
+      useForEeachStreamNode = false,
     }: {
       oldHTMLString: string;
       newHTMLStringChunks: string[];
-    }): Promise<[string, any[]]> {
+      useForEeachStreamNode?: boolean;
+    }): Promise<[string, any[], Node[]]> {
       await page.setContent(normalize(oldHTMLString));
-      const mutations = await page.evaluate(
-        async ([diffCode, newHTMLStringChunks]) => {
+      const [mutations, streamNodes] = await page.evaluate(
+        async ([diffCode, newHTMLStringChunks, useForEeachStreamNode]) => {
           eval(diffCode as string);
           const encoder = new TextEncoder();
           const readable = new ReadableStream({
             start: (controller) => {
-              for (const chunk of newHTMLStringChunks) {
+              for (const chunk of newHTMLStringChunks as string[]) {
                 controller.enqueue(encoder.encode(chunk));
               }
               controller.close();
@@ -91,18 +93,30 @@ describe.each(["chrome", "firefox", "safari"])(
             characterDataOldValue: true,
           });
 
-          await diff(document.documentElement!, reader);
+          const streamNodes: Node[] = [];
+
+          const forEachStreamNode = useForEeachStreamNode
+            ? (node: Node) => {
+                streamNodes.push({
+                  nodeName: node.nodeName,
+                  nodeValue: node.nodeValue,
+                } as Node);
+              }
+            : undefined;
+
+          await diff(document.documentElement!, reader, forEachStreamNode);
 
           observer.disconnect();
 
-          return allMutations;
+          return [allMutations, streamNodes];
         },
-        [diffCode, newHTMLStringChunks],
+        [diffCode, newHTMLStringChunks, useForEeachStreamNode],
       );
 
       return [
         (await page.content()).replace(/\s*\n\s*/g, "").replaceAll("'", '"'),
         mutations,
+        streamNodes,
       ];
     }
 
@@ -1376,6 +1390,27 @@ describe.each(["chrome", "firefox", "safari"])(
           oldValue: "hello world",
         },
       ]);
+    });
+
+    it("should analyze all stream nodes using a forEachStreamNode", async () => {
+      const [, , streamNodes] = await testDiff({
+        oldHTMLString: `
+        <div>
+          <div>hello world</div>
+        </div>
+      `,
+        newHTMLStringChunks: ["<div>", "<div>hello & world</div>", "</div>"],
+        useForEeachStreamNode: true,
+      });
+
+      // Analyze all stream nodes via forEachStreamNode
+      expect(streamNodes).toHaveLength(5);
+      expect(streamNodes[0].nodeName).toBe("HEAD");
+      expect(streamNodes[1].nodeName).toBe("BODY");
+      expect(streamNodes[2].nodeName).toBe("DIV");
+      expect(streamNodes[3].nodeName).toBe("DIV");
+      expect(streamNodes[4].nodeName).toBe("#text");
+      expect(streamNodes[4].nodeValue).toBe("hello & world");
     });
   },
 );

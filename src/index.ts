@@ -9,6 +9,8 @@ type Walker = {
   nextSibling: (node: Node) => Promise<Node | null>;
 };
 
+type Callback = (node: Node) => void;
+
 const ELEMENT_TYPE = 1;
 const DOCUMENT_TYPE = 9;
 const DOCUMENT_FRAGMENT_TYPE = 11;
@@ -19,8 +21,9 @@ const decoder = new TextDecoder();
 export default async function diff(
   oldNode: Node,
   reader: ReadableStreamDefaultReader,
+  callback?: Callback,
 ) {
-  const walker = await htmlStreamWalker(reader);
+  const walker = await htmlStreamWalker(reader, callback);
   const newNode = walker.rootNode!;
 
   if (oldNode.nodeType === DOCUMENT_TYPE) {
@@ -176,6 +179,7 @@ function getKey(node: Node) {
 
 async function htmlStreamWalker(
   streamReader: ReadableStreamDefaultReader,
+  callback: (node: Node) => void = () => {},
 ): Promise<Walker> {
   const doc = document.implementation.createHTMLDocument();
   let closed = false;
@@ -217,7 +221,11 @@ async function htmlStreamWalker(
         }
       }
 
-      return node[field];
+      const nextNode = node[field];
+
+      if (nextNode) callback(nextNode);
+
+      return nextNode;
     };
   }
 
