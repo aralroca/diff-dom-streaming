@@ -14,9 +14,8 @@ type Callback = (node: Node) => void;
 const ELEMENT_TYPE = 1;
 const DOCUMENT_TYPE = 9;
 const DOCUMENT_FRAGMENT_TYPE = 11;
-const LAST_CHUNK_COMMENT_CONTENT = "l-c";
-const LAST_CHUNK_COMMENT = `<!--${LAST_CHUNK_COMMENT_CONTENT}-->`;
 const decoder = new TextDecoder();
+const wait = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 export default async function diff(
   oldNode: Node,
@@ -182,46 +181,45 @@ async function htmlStreamWalker(
   callback: (node: Node) => void = () => {},
 ): Promise<Walker> {
   const doc = document.implementation.createHTMLDocument();
-  let closed = false;
+  let lastNodeAdded: Node | null = null;
 
+  const observer = new MutationObserver((mutationList) => {
+    const node = mutationList[mutationList.length - 1].addedNodes[0];
+    lastNodeAdded = node.nodeType === 3 ? node.parentNode : node;
+  });
+
+  observer.observe(doc, { childList: true, subtree: true });
   doc.open();
+  streamReader.read().then(processChunk);
 
-  // Prevent first chunk with only <!DOCTYPE html>
-  while (!doc.documentElement) await waitNextChunk();
-
-  const rootNode = doc.documentElement;
-
-  async function waitNextChunk() {
-    const { done, value } = await streamReader.read();
-
+  function processChunk({ done, value }: any) {
     if (done) {
-      if (!closed) doc.close();
-      closed = true;
+      doc.close();
+      observer.disconnect();
       return;
     }
 
-    doc.write(decoder.decode(value) + LAST_CHUNK_COMMENT);
+    doc.write(decoder.decode(value));
+    streamReader.read().then(processChunk);
   }
+
+  while (!doc.documentElement) await wait();
+
+  const rootNode = doc.documentElement;
 
   function next(field: "firstChild" | "nextSibling") {
     return async (node: Node) => {
       if (!node) return null;
 
-      const it = document.createNodeIterator(
-        node,
-        128 /* NodeFilter.SHOW_COMMENT */,
-      );
-
-      // Wait for other chunks when it's in the middle of the stream
-      while (it.nextNode()) {
-        const rNode = it.referenceNode as Comment;
-        if (rNode.nodeValue === LAST_CHUNK_COMMENT_CONTENT) {
-          rNode.remove();
-          await waitNextChunk();
-        }
+      while (field === "nextSibling" && node.isSameNode(lastNodeAdded)) {
+        await wait();
       }
 
-      const nextNode = node[field];
+      let nextNode = node[field];
+
+      while (nextNode?.isSameNode(lastNodeAdded)) {
+        await wait();
+      }
 
       if (nextNode) callback(nextNode);
 
