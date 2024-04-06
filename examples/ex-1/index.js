@@ -19,12 +19,20 @@ async function refresh() {
           <script crossorigin="anonymous" src="/ex-1/index.js" type="module"></script>
         </head>
         <body>
-          <label for="ms">Milliseconds between boxes</label>
-          <input id="ms" placeholder="Milliseconds between boxes" value="0" type="number" />
-          <label for="box">Number of boxes</label>
-          <input id="box" placeholder="Number of boxes" value="3" type="number" />
-          <button>Diff</button>
-          <a href="/ex-1">Reload</a>
+          <header>
+            <label for="ms">Milliseconds between boxes</label>
+            <input
+            id="ms"
+            placeholder="Milliseconds between boxes"
+            value="0"
+            type="number"
+            />
+            <label for="box">Number of boxes</label>
+            <input id="box" placeholder="Number of boxes" value="3" type="number" />
+            <button>Diff</button>
+            <a href="/ex-1">Reload</a>
+            <div><a href="/">Come back to examples</a></div>
+          </header>
           <div class="container">
         `),
       );

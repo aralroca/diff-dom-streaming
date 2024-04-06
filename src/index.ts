@@ -106,7 +106,6 @@ function setAttributes(
 async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
   let checkOld;
   let oldKey;
-  let checkNew;
   let newKey;
   let foundNode;
   let keyedNodes: Record<string, Node> | null = null;

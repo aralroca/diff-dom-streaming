@@ -2,7 +2,16 @@
   box-sizing: border-box;
 }
 
+header {
+  position: fixed;
+  padding: 10px;
+  margin-top: -10px;
+  background-color: light-dark(white, black);
+  width: 100%;
+}
+
 .container {
+  padding-top: 60px;
   display: flex;
   justify-content: flex-start;
   flex-wrap: wrap;
