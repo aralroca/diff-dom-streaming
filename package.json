@@ -48,7 +48,8 @@
   "scripts": {
     "build": "bun build --target=browser --minify --outdir=build src/index.ts",
     "test": "bun test --timeout=30000",
-    "bundlewatch": "bundlewatch"
+    "bundlewatch": "bundlewatch",
+    "example": "bunx serve ./examples"
   },
   "devDependencies": {
     "typescript": "5.4.3",
