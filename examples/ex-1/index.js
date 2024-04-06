@@ -1,70 +1,59 @@
-import diff from "https://unpkg.com/diff-dom-streaming@0.1.1/build/index.js";
+import diff from "https://unpkg.com/diff-dom-streaming@latest/build/index.js";
 
 async function refresh() {
   // This is a simple example. Normally the stream comes from a fetch request.
   const encoder = new TextEncoder();
+  const ms = +document.querySelector("#ms").value ?? 0;
+  const numBoxes = +document.querySelector("#box").value ?? 3;
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const stream = new ReadableStream({
     async start(controller) {
       let epochStart = Date.now();
-      controller.enqueue(encoder.encode("<!doctype html>"));
-      controller.enqueue(encoder.encode("<html>"));
-      controller.enqueue(encoder.encode("<head>"));
-      controller.enqueue(encoder.encode("<title>Example 1</title>"));
       controller.enqueue(
-        encoder.encode(
-          "<style>.container { display: flex; justify-content: space-between; } .box { width: 30%; padding: 20px; border: 1px solid #000; margin: 10px; }</style>",
-        ),
+        encoder.encode(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Example 1</title>
+          <link rel="stylesheet" href="/ex-1/styles.css">
+          <script crossorigin="anonymous" src="/ex-1/index.js" type="module"></script>
+        </head>
+        <body>
+          <label for="ms">Milliseconds between boxes</label>
+          <input id="ms" placeholder="Milliseconds between boxes" value="0" type="number" />
+          <label for="box">Number of boxes</label>
+          <input id="box" placeholder="Number of boxes" value="3" type="number" />
+          <button>Diff</button>
+          <a href="/ex-1">Reload</a>
+          <div class="container">
+        `),
       );
+
+      // BOXES
+      for (let i = 0; i < numBoxes; i++) {
+        controller.enqueue(
+          encoder.encode(`
+          <div class="box">
+            <h1>Box ${i + 1}</h1>
+            <p>${Date.now() - epochStart} milliseconds</p>
+            <p>Random number: ${Math.random()}</p>
+          </div>
+        `),
+        );
+        if (ms) await wait(ms);
+      }
+
       controller.enqueue(
-        encoder.encode(
-          '<script crossorigin="anonymous" src="/ex-1/index.js" type="module"></script>',
-        ),
+        encoder.encode(`
+            </div>
+          </body>
+        </html>
+      `),
       );
-      controller.enqueue(encoder.encode("</head>"));
-      controller.enqueue(encoder.encode("<body>"));
-      controller.enqueue(encoder.encode('<div class="container">'));
-      controller.enqueue(encoder.encode('<div class="box">'));
-      controller.enqueue(encoder.encode("<h1>Box 1</h1>"));
-      controller.enqueue(
-        encoder.encode(`<p>${Date.now() - epochStart} milliseconds</p>`),
-      );
-      controller.enqueue(
-        encoder.encode(`<p>Random number: ${Math.random()}</p>`),
-      );
-      controller.enqueue(encoder.encode("</div>"));
-      await wait(500);
-      controller.enqueue(encoder.encode('<div class="box">'));
-      controller.enqueue(encoder.encode("<h1>Box 2</h1>"));
-      controller.enqueue(
-        encoder.encode(`<p>${Date.now() - epochStart} milliseconds</p>`),
-      );
-      controller.enqueue(
-        encoder.encode(`<p>Random number: ${Math.random()}</p>`),
-      );
-      controller.enqueue(encoder.encode("</div>"));
-      await wait(500);
-      controller.enqueue(encoder.encode('<div class="box">'));
-      controller.enqueue(encoder.encode("<h1>Box 3</h1>"));
-      controller.enqueue(
-        encoder.encode(`<p>${Date.now() - epochStart} milliseconds</p>`),
-      );
-      controller.enqueue(
-        encoder.encode(`<p>Random number: ${Math.random()}</p>`),
-      );
-      controller.enqueue(encoder.encode("</div>"));
-      controller.enqueue(encoder.encode("</div>"));
-      controller.enqueue(
-        encoder.encode('<button onclick="refresh">Refresh</button>'),
-      );
-      controller.enqueue(
-        encoder.encode('<a href="/">Come back to examples</a>'),
-      );
-      controller.enqueue(encoder.encode("</body>"));
-      controller.enqueue(encoder.encode("</html>"));
       controller.close();
     },
   });
+
   await diff(document, stream.getReader());
 }
 

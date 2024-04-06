@@ -14,6 +14,7 @@ type Callback = (node: Node) => void;
 const ELEMENT_TYPE = 1;
 const DOCUMENT_TYPE = 9;
 const DOCUMENT_FRAGMENT_TYPE = 11;
+const IS_LAST_CHUNK = "i-l-c";
 const decoder = new TextDecoder();
 const wait = () => new Promise((resolve) => requestAnimationFrame(resolve));
 
@@ -41,7 +42,7 @@ export default async function diff(
  */
 async function updateNode(oldNode: Node, newNode: Node, walker: Walker) {
   if (oldNode.nodeType !== newNode.nodeType) {
-    return oldNode.parentNode!.replaceChild(newNode, oldNode);
+    return oldNode.parentNode!.replaceChild(newNode.cloneNode(true), oldNode);
   }
 
   if (oldNode.nodeType === ELEMENT_TYPE) {
@@ -53,9 +54,9 @@ async function updateNode(oldNode: Node, newNode: Node, walker: Walker) {
         (newNode as Element).attributes,
       );
     } else {
-      const newPrev = newNode.cloneNode();
-      while (oldNode.firstChild) newPrev.appendChild(oldNode.firstChild);
-      oldNode.parentNode!.replaceChild(newPrev, oldNode);
+      const clonedNewNode = newNode.cloneNode(true);
+      while (oldNode.firstChild) clonedNewNode.appendChild(oldNode.firstChild);
+      oldNode.parentNode!.replaceChild(clonedNewNode, oldNode);
     }
   } else if (oldNode.nodeValue !== newNode.nodeValue) {
     oldNode.nodeValue = newNode.nodeValue;
@@ -131,11 +132,10 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
   // Loop over new nodes and perform updates.
   while (newNode) {
     extra--;
-    checkNew = newNode;
 
     if (
       keyedNodes &&
-      (newKey = getKey(checkNew)) &&
+      (newKey = getKey(newNode)) &&
       (foundNode = keyedNodes[newKey])
     ) {
       delete keyedNodes[newKey];
@@ -145,17 +145,17 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
         oldNode = oldNode.nextSibling;
       }
 
-      await updateNode(foundNode, checkNew, walker);
+      await updateNode(foundNode, newNode, walker);
     } else if (oldNode) {
       checkOld = oldNode;
       oldNode = oldNode.nextSibling;
       if (getKey(checkOld)) {
-        oldParent.insertBefore(checkNew, checkOld);
+        oldParent.insertBefore(newNode.cloneNode(true), checkOld);
       } else {
-        await updateNode(checkOld, checkNew, walker);
+        await updateNode(checkOld, newNode, walker);
       }
     } else {
-      oldParent.appendChild(checkNew);
+      oldParent.appendChild(newNode.cloneNode(true));
     }
 
     newNode = (await walker.nextSibling(newNode)) as ChildNode;
@@ -180,11 +180,17 @@ async function htmlStreamWalker(
   callback: (node: Node) => void = () => {},
 ): Promise<Walker> {
   const doc = document.implementation.createHTMLDocument();
-  let lastNodeAdded: Node | null = null;
+  let lastNodeAdded: Element | null = null;
 
   const observer = new MutationObserver((mutationList) => {
-    const node = mutationList[mutationList.length - 1].addedNodes[0];
-    lastNodeAdded = node?.nodeType === 3 ? node.parentNode : node;
+    const el = mutationList[mutationList.length - 1].addedNodes[0] as Element;
+    if (lastNodeAdded) lastNodeAdded.removeAttribute(IS_LAST_CHUNK);
+    lastNodeAdded =
+      (el?.nodeType === 1
+        ? el
+        : el?.previousElementSibling || el?.parentElement) || null;
+    if (!lastNodeAdded) return;
+    lastNodeAdded.setAttribute(IS_LAST_CHUNK, "t");
   });
 
   observer.observe(doc, { childList: true, subtree: true });
@@ -194,7 +200,7 @@ async function htmlStreamWalker(
   function processChunk({ done, value }: any) {
     if (done) {
       doc.close();
-      lastNodeAdded = null;
+      if (lastNodeAdded) lastNodeAdded.removeAttribute(IS_LAST_CHUNK);
       observer.disconnect();
       return;
     }
@@ -215,7 +221,10 @@ async function htmlStreamWalker(
 
       if (nextNode) callback(nextNode);
 
-      while (nextNode?.isSameNode(lastNodeAdded)) await wait();
+      while ((nextNode as Element)?.hasAttribute?.(IS_LAST_CHUNK)) {
+        lastNodeAdded = nextNode as Element;
+        await wait();
+      }
 
       return nextNode;
     };

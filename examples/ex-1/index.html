@@ -2,37 +2,21 @@
 <html>
   <head>
     <title>Example 1</title>
-    <style>
-      .container {
-        display: flex;
-        justify-content: space-between;
-      }
-
-      .box {
-        width: 30%;
-        padding: 20px;
-        border: 1px solid #000;
-        margin: 10px;
-      }
-    </style>
+    <link rel="stylesheet" href="/ex-1/styles.css" />
     <script crossorigin="anonymous" src="/ex-1/index.js" type="module"></script>
   </head>
   <body>
-    <div class="container">
-      <div class="box">
-        <h1>Box 1</h1>
-        <p>Content of box 1</p>
-      </div>
-      <div class="box">
-        <h1>Box 2</h1>
-        <p>Content of box 2</p>
-      </div>
-      <div class="box">
-        <h1>Box 3</h1>
-        <p>Content of box 3</p>
-      </div>
-    </div>
-    <button>Refresh</button>
-    <a href="/">Come back to examples</a>
+    <label for="ms">Milliseconds between boxes</label>
+    <input
+      id="ms"
+      placeholder="Milliseconds between boxes"
+      value="0"
+      type="number"
+    />
+    <label for="box">Number of boxes</label>
+    <input id="box" placeholder="Number of boxes" value="3" type="number" />
+    <button>Diff</button>
+    <a href="/ex-1">Reload</a>
+    <div><a href="/">Come back to examples</a></div>
   </body>
 </html>
