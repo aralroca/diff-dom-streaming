@@ -157,7 +157,7 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
     } else {
       oldParent.appendChild(checkNew);
     }
-    
+
     newNode = (await walker.nextSibling(newNode)) as ChildNode;
   }
 
@@ -184,7 +184,7 @@ async function htmlStreamWalker(
 
   const observer = new MutationObserver((mutationList) => {
     const node = mutationList[mutationList.length - 1].addedNodes[0];
-    lastNodeAdded = node.nodeType === 3 ? node.parentNode : node;
+    lastNodeAdded = node?.nodeType === 3 ? node.parentNode : node;
   });
 
   observer.observe(doc, { childList: true, subtree: true });
@@ -211,17 +211,11 @@ async function htmlStreamWalker(
     return async (node: Node) => {
       if (!node) return null;
 
-      while (field === "nextSibling" && node.isSameNode(lastNodeAdded)) {
-        await wait();
-      }
-
       let nextNode = node[field];
 
-      while (nextNode?.isSameNode(lastNodeAdded)) {
-        await wait();
-      }
-
       if (nextNode) callback(nextNode);
+
+      while (nextNode?.isSameNode(lastNodeAdded)) await wait();
 
       return nextNode;
     };
