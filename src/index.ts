@@ -45,8 +45,6 @@ async function updateNode(oldNode: Node, newNode: Node, walker: Walker) {
   }
 
   if (oldNode.nodeType === ELEMENT_TYPE) {
-    if (oldNode.isEqualNode(newNode)) return;
-
     await setChildNodes(oldNode, newNode, walker);
 
     if (oldNode.nodeName === newNode.nodeName) {
@@ -212,7 +210,7 @@ async function htmlStreamWalker(
     return async (node: Node) => {
       if (!node) return null;
 
-      while (field === "nextSibling" && (node.isSameNode(lastNodeAdded) || node.contains(lastNodeAdded))) {
+      while (field === "nextSibling" && node.isSameNode(lastNodeAdded)) {
         await wait();
       }
 
