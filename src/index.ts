@@ -195,6 +195,7 @@ async function htmlStreamWalker(
   function processChunk({ done, value }: any) {
     if (done) {
       doc.close();
+      lastNodeAdded = null;
       observer.disconnect();
       return;
     }
@@ -211,7 +212,7 @@ async function htmlStreamWalker(
     return async (node: Node) => {
       if (!node) return null;
 
-      while (field === "nextSibling" && node.isSameNode(lastNodeAdded)) {
+      while (field === "nextSibling" && (node.isSameNode(lastNodeAdded) || node.contains(lastNodeAdded))) {
         await wait();
       }
 
