@@ -15,7 +15,7 @@ const ELEMENT_TYPE = 1;
 const DOCUMENT_TYPE = 9;
 const DOCUMENT_FRAGMENT_TYPE = 11;
 const decoder = new TextDecoder();
-const wait = () => new Promise((resolve) => setTimeout(resolve, 0));
+const wait = () => new Promise((resolve) => requestAnimationFrame(resolve));
 
 export default async function diff(
   oldNode: Node,
