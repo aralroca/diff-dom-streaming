@@ -1,4 +1,4 @@
-import diff from "https://unpkg.com/diff-dom-streaming@latest/build/index.js";
+import diff from "https://unpkg.com/diff-dom-streaming@latest";
 
 async function refresh() {
   // This is a simple example. Normally the stream comes from a fetch request.
