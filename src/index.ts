@@ -132,7 +132,6 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
   while (newNode) {
     extra--;
     checkNew = newNode;
-    newNode = (await walker.nextSibling(newNode)) as ChildNode;
 
     if (
       keyedNodes &&
@@ -158,6 +157,8 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
     } else {
       oldParent.appendChild(checkNew);
     }
+    
+    newNode = (await walker.nextSibling(newNode)) as ChildNode;
   }
 
   // Remove old keyed nodes.
