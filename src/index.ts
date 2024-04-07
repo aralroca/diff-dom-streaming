@@ -130,6 +130,7 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
 
   // Loop over new nodes and perform updates.
   while (newNode) {
+    let insertedNode;
     extra--;
 
     if (
@@ -149,12 +150,23 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
       checkOld = oldNode;
       oldNode = oldNode.nextSibling;
       if (getKey(checkOld)) {
-        oldParent.insertBefore(newNode.cloneNode(true), checkOld);
+        insertedNode = newNode.cloneNode(true);
+        oldParent.insertBefore(insertedNode, checkOld);
       } else {
         await updateNode(checkOld, newNode, walker);
       }
     } else {
-      oldParent.appendChild(newNode.cloneNode(true));
+      const clonedNewNode = newNode.cloneNode(true);
+      oldParent.appendChild(clonedNewNode);
+    }
+
+    if (insertedNode?.nodeType === ELEMENT_TYPE) {
+      const lastChunk = (newNode as Element).querySelector(
+        `[${IS_LAST_CHUNK}]`,
+      );
+
+      while (lastChunk?.hasAttribute(IS_LAST_CHUNK)) await wait();
+      if (lastChunk) await updateNode(insertedNode, newNode, walker);
     }
 
     newNode = (await walker.nextSibling(newNode)) as ChildNode;

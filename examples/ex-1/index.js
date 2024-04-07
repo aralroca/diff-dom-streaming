@@ -1,6 +1,6 @@
 import diff from "https://unpkg.com/diff-dom-streaming@latest";
 
-async function refresh() {
+async function diffStreamReader() {
   // This is a simple example. Normally the stream comes from a fetch request.
   const encoder = new TextEncoder();
   const ms = +document.querySelector("#ms").value ?? 0;
@@ -65,4 +65,4 @@ async function refresh() {
   await diff(document, stream.getReader());
 }
 
-document.querySelector("button").addEventListener("click", refresh);
+document.querySelector("button").addEventListener("click", diffStreamReader);
