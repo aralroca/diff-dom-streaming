@@ -156,8 +156,8 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
         await updateNode(checkOld, newNode, walker);
       }
     } else {
-      const clonedNewNode = newNode.cloneNode(true);
-      oldParent.appendChild(clonedNewNode);
+      insertedNode = newNode.cloneNode(true);
+      oldParent.appendChild(insertedNode);
     }
 
     if (insertedNode?.nodeType === ELEMENT_TYPE) {
