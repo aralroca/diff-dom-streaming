@@ -72,6 +72,12 @@ const res = await fetch(/* some url */);
 await diff(document, res.body.getReader());
 ```
 
+## API
+
+`diff(oldNode: Node, reader: ReadableStreamDefaultReader, callback?: Callback)`
+
+This function performs a diffing operation between the `oldNode` and the DOM tree streamed through `reader`. It applies the necessary changes to update the `oldNode` accordingly. An optional `callback` function can be provided to handle node updates.
+
 ## Examples
 
 In the repo we have examples for you to try.
