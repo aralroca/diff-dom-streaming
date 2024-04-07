@@ -4,7 +4,7 @@
  * but using streaming.
  */
 type Walker = {
-  rootNode: Node | null;
+  root: Node | null;
   firstChild: (node: Node) => Promise<Node | null>;
   nextSibling: (node: Node) => Promise<Node | null>;
 };
@@ -14,7 +14,7 @@ type Callback = (node: Node) => void;
 const ELEMENT_TYPE = 1;
 const DOCUMENT_TYPE = 9;
 const DOCUMENT_FRAGMENT_TYPE = 11;
-const IS_LAST_CHUNK = "i-l-c";
+const IS_LAST_CHUNK = "i-lc";
 const decoder = new TextDecoder();
 const wait = () => new Promise((resolve) => requestAnimationFrame(resolve));
 
@@ -24,7 +24,7 @@ export default async function diff(
   callback?: Callback,
 ) {
   const walker = await htmlStreamWalker(reader, callback);
-  const newNode = walker.rootNode!;
+  const newNode = walker.root!;
 
   if (oldNode.nodeType === DOCUMENT_TYPE) {
     oldNode = (oldNode as Document).documentElement;
@@ -186,6 +186,9 @@ function getKey(node: Node) {
   return (node as Element)?.getAttribute?.("key") || (node as Element).id;
 }
 
+/**
+ * Utility that will walk a html stream and call a callback for each node.
+ */
 async function htmlStreamWalker(
   streamReader: ReadableStreamDefaultReader,
   callback: (node: Node) => void = () => {},
@@ -195,13 +198,12 @@ async function htmlStreamWalker(
 
   const observer = new MutationObserver((mutationList) => {
     const el = mutationList[mutationList.length - 1].addedNodes[0] as Element;
-    if (lastNodeAdded) lastNodeAdded.removeAttribute(IS_LAST_CHUNK);
+    lastNodeAdded?.removeAttribute(IS_LAST_CHUNK);
     lastNodeAdded =
-      (el?.nodeType === 1
+      (el?.nodeType === ELEMENT_TYPE
         ? el
         : el?.previousElementSibling || el?.parentElement) || null;
-    if (!lastNodeAdded) return;
-    lastNodeAdded.setAttribute(IS_LAST_CHUNK, "t");
+    lastNodeAdded?.setAttribute(IS_LAST_CHUNK, "");
   });
 
   observer.observe(doc, { childList: true, subtree: true });
@@ -211,7 +213,7 @@ async function htmlStreamWalker(
   function processChunk({ done, value }: any) {
     if (done) {
       doc.close();
-      if (lastNodeAdded) lastNodeAdded.removeAttribute(IS_LAST_CHUNK);
+      lastNodeAdded?.removeAttribute(IS_LAST_CHUNK);
       observer.disconnect();
       return;
     }
@@ -226,8 +228,6 @@ async function htmlStreamWalker(
   ) {
     await wait();
   }
-
-  const rootNode = doc.documentElement;
 
   function next(field: "firstChild" | "nextSibling") {
     return async (node: Node) => {
@@ -247,7 +247,7 @@ async function htmlStreamWalker(
   }
 
   return {
-    rootNode,
+    root: doc.documentElement,
     firstChild: next("firstChild"),
     nextSibling: next("nextSibling"),
   };
