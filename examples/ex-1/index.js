@@ -1,6 +1,8 @@
 import diff from "https://unpkg.com/diff-dom-streaming@latest";
 
-async function diffStreamReader() {
+async function diffStreamReader(e) {
+  e?.preventDefault();
+
   // This is a simple example. Normally the stream comes from a fetch request.
   const encoder = new TextEncoder();
   const ms = +document.querySelector("#ms").value ?? 0;
@@ -20,18 +22,21 @@ async function diffStreamReader() {
         </head>
         <body>
           <header>
-            <label for="ms">Milliseconds between boxes</label>
-            <input
-            id="ms"
-            placeholder="Milliseconds between boxes"
-            value="0"
-            type="number"
-            />
-            <label for="box">Number of boxes</label>
-            <input id="box" placeholder="Number of boxes" value="3" type="number" />
-            <button>Diff</button>
-            <a href="/ex-1">Reload</a>
-            <div><a href="/">Come back to examples</a></div>
+            <form>
+              <label for="ms">Milliseconds between boxes</label>
+              <input
+              id="ms"
+              placeholder="Milliseconds between boxes"
+              value="0"
+              type="number"
+              />
+              <label for="box">Number of boxes</label>
+              <input id="box" placeholder="Number of boxes" value="3" type="number" />
+              <button>Diff</button>
+              <a href="/ex-1">Reload</a>
+              <a href="/">Come back to examples</a>
+              <a href="https://github.com/aralroca/diff-dom-streaming" target="_blank">GitHub</a>
+            </form>
           </header>
           <div class="container">
         `),
@@ -65,4 +70,4 @@ async function diffStreamReader() {
   await diff(document, stream.getReader());
 }
 
-document.querySelector("button").addEventListener("click", diffStreamReader);
+document.querySelector("form").addEventListener("submit", diffStreamReader);
