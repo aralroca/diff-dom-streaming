@@ -220,7 +220,9 @@ async function htmlStreamWalker(
     streamReader.read().then(processChunk);
   }
 
-  while (!doc.documentElement) await wait();
+  while (!doc.documentElement || doc.documentElement.hasAttribute(IS_LAST_CHUNK)) {
+    await wait();
+  }
 
   const rootNode = doc.documentElement;
 
