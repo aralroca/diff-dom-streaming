@@ -1,6 +1,6 @@
 {
   "name": "diff-dom-streaming",
-  "version": "0.1.1",
+  "version": "0.1.2-canary.1",
   "bugs": "https://github.com/aralroca/diff-dom-streaming/issues",
   "description": "Diff DOM algorithm with streaming. Gets all modifications, insertions and removals between a DOM fragment and a stream HTML reader.",
   "keywords": [
@@ -17,7 +17,7 @@
     "files": [
       {
         "path": "./build/index.js",
-        "maxSize": "1 kB"
+        "maxSize": "1.5 kB"
       }
     ]
   },
@@ -48,7 +48,8 @@
   "scripts": {
     "build": "bun build --target=browser --minify --outdir=build src/index.ts",
     "test": "bun test --timeout=30000",
-    "bundlewatch": "bundlewatch"
+    "bundlewatch": "bundlewatch",
+    "example": "bunx serve ./examples"
   },
   "devDependencies": {
     "typescript": "5.4.3",

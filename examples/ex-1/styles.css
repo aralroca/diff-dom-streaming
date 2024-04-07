@@ -1,0 +1,25 @@
+* {
+  box-sizing: border-box;
+}
+
+header {
+  position: fixed;
+  padding: 10px;
+  margin-top: -10px;
+  background-color: light-dark(white, black);
+  width: 100%;
+}
+
+.container {
+  padding-top: 60px;
+  display: flex;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.box {
+  width: 30%;
+  padding: 20px;
+  border: 1px solid #000;
+  margin: 10px;
+}

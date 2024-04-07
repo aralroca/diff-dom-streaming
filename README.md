@@ -27,19 +27,9 @@ The Diff DOM Streaming library extends the traditional Diff DOM algorithm by int
 
 ## Getting started
 
-### JSR
+### NPM
 
-```sh
-bunx jsr add @aralroca/diff-dom-streaming
-```
-
-Then import it:
-
-```ts
-import diff from "@aralroca/diff-dom-streaming";
-```
-
-### Npm
+Install:
 
 ```sh
 bun install diff-dom-streaming
@@ -51,6 +41,28 @@ Then import it:
 import diff from "diff-dom-streaming";
 ```
 
+### JSR
+
+Install:
+
+```sh
+bunx jsr add @aralroca/diff-dom-streaming
+```
+
+Then import it:
+
+```ts
+import diff from "@aralroca/diff-dom-streaming";
+```
+
+### UNPKG
+
+Just import it:
+
+```tsx
+import diff from "https://unpkg.com/diff-dom-streaming@latest";
+```
+
 ## Using it
 
 ```ts
@@ -59,3 +71,16 @@ const res = await fetch(/* some url */);
 // Diff between the current document and the reader:
 await diff(document, res.body.getReader());
 ```
+
+## API
+
+`diff(oldNode: Node, reader: ReadableStreamDefaultReader, callback?: Callback)`
+
+This function performs a diffing operation between the `oldNode` and the DOM tree streamed through `reader`. It applies the necessary changes to update the `oldNode` accordingly. An optional `callback` function can be provided to handle node updates.
+
+## Examples
+
+In the repo we have examples for you to try.
+
+1. Clone this repository
+2. Run `bun run example`

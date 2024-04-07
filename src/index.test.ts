@@ -37,19 +37,28 @@ describe.each(["chrome", "firefox", "safari"])(
       oldHTMLString,
       newHTMLStringChunks,
       useForEeachStreamNode = false,
+      slowChunks = false,
     }: {
       oldHTMLString: string;
       newHTMLStringChunks: string[];
       useForEeachStreamNode?: boolean;
+      slowChunks?: boolean;
     }): Promise<[string, any[], Node[]]> {
       await page.setContent(normalize(oldHTMLString));
       const [mutations, streamNodes] = await page.evaluate(
-        async ([diffCode, newHTMLStringChunks, useForEeachStreamNode]) => {
+        async ([
+          diffCode,
+          newHTMLStringChunks,
+          useForEeachStreamNode,
+          slowChunks,
+        ]) => {
           eval(diffCode as string);
           const encoder = new TextEncoder();
           const readable = new ReadableStream({
-            start: (controller) => {
+            start: async (controller) => {
               for (const chunk of newHTMLStringChunks as string[]) {
+                if (slowChunks)
+                  await new Promise((resolve) => setTimeout(resolve, 100));
                 controller.enqueue(encoder.encode(chunk));
               }
               controller.close();
@@ -110,7 +119,7 @@ describe.each(["chrome", "firefox", "safari"])(
 
           return [allMutations, streamNodes];
         },
-        [diffCode, newHTMLStringChunks, useForEeachStreamNode],
+        [diffCode, newHTMLStringChunks, useForEeachStreamNode, slowChunks],
       );
 
       return [
@@ -1411,6 +1420,73 @@ describe.each(["chrome", "firefox", "safari"])(
       expect(streamNodes[3].nodeName).toBe("DIV");
       expect(streamNodes[4].nodeName).toBe("#text");
       expect(streamNodes[4].nodeValue).toBe("hello & world");
+    });
+
+    it("should diff with slow chunks", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
+        <html>
+          <head></head>
+          <body>
+            <div>foo</div>
+            <div>bar</div>
+            <div>baz</div>
+          </body>
+        </html>
+      `,
+        newHTMLStringChunks: [
+          "<html>",
+          "<head></head>",
+          "<body>",
+          "<div>baz</div>",
+          "<div>foo</div>",
+          "<div>bar</div>",
+          "</body>",
+          "</html>",
+        ],
+        slowChunks: true,
+      });
+      expect(newHTML).toBe(
+        normalize(`
+      <html>
+        <head></head>
+        <body>
+          <div>baz</div>
+          <div>foo</div>
+          <div>bar</div>
+        </body>
+      </html>
+    `),
+      );
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "foo",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "bar",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "baz",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+      ]);
     });
   },
 );
