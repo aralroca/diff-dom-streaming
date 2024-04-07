@@ -93,3 +93,15 @@ You can run the boxes demo with Vanillajs [here](https://stackblitz.com/edit/dif
 
 ![ezgif-4-1ff18912f4](https://github.com/aralroca/diff-dom-streaming/assets/13313058/f18c01c0-4dfe-473f-8817-fb905adc20c1)
 
+## Acknowledgments
+
+The Diff DOM Algorithm with HTML Streaming is inspired by the [set-dom](https://github.com/DylanPiercey/set-dom) library by [@dylan_piercey](https://twitter.com/dylan_piercey) and a technique for parsing streams pioneered by [@jaffathecake](https://twitter.com/jaffathecake).
+
+## Contributing
+
+See [Contributing Guide](CONTRIBUTING.md) and please follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## License
+
+[MIT](LICENSE)
+
