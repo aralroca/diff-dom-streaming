@@ -82,5 +82,14 @@ This function performs a diffing operation between the `oldNode` and the DOM tre
 
 In the repo we have examples for you to try.
 
+### Locally
+
 1. Clone this repository
 2. Run `bun run example`
+
+### Stackblitz
+
+You can run the boxes demo with Vanillajs [here](https://stackblitz.com/edit/diff-dom-streaming?file=index.js).
+
+![ezgif-4-1ff18912f4](https://github.com/aralroca/diff-dom-streaming/assets/13313058/f18c01c0-4dfe-473f-8817-fb905adc20c1)
+
