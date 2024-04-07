@@ -54,7 +54,7 @@ async function updateNode(oldNode: Node, newNode: Node, walker: Walker) {
         (newNode as Element).attributes,
       );
     } else {
-      const clonedNewNode = newNode.cloneNode(true);
+      const clonedNewNode = newNode.cloneNode();
       while (oldNode.firstChild) clonedNewNode.appendChild(oldNode.firstChild);
       oldNode.parentNode!.replaceChild(clonedNewNode, oldNode);
     }
@@ -220,7 +220,10 @@ async function htmlStreamWalker(
     streamReader.read().then(processChunk);
   }
 
-  while (!doc.documentElement || doc.documentElement.hasAttribute(IS_LAST_CHUNK)) {
+  while (
+    !doc.documentElement ||
+    doc.documentElement.hasAttribute(IS_LAST_CHUNK)
+  ) {
     await wait();
   }
 
