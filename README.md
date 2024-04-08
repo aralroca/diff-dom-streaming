@@ -78,6 +78,23 @@ await diff(document, res.body.getReader());
 
 This function performs a diffing operation between the `oldNode` and the DOM tree streamed through `reader`. It applies the necessary changes to update the `oldNode` accordingly. An optional `callback` function can be provided to handle node updates.
 
+## Lists and `key` attribute
+
+Keys help to identify which items have changed, are added, or are removed. Keys should be given to the elements inside the array to give the elements a stable identity:
+
+```jsx 3
+const numbers = [1, 2, 3, 4, 5];
+const listItems = numbers.map((number) =>
+  <li key={number.toString()}>
+    {number}
+  </li>
+);
+```
+
+_(Example with JSX)_
+
+The `diff-dom-streaming` library takes into account the `key` attribute for these cases, if it does not exist, then see if they have `id`.
+
 ## Examples
 
 In the repo we have examples for you to try.
