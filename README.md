@@ -25,6 +25,8 @@ The Diff DOM (Document Object Model) algorithm is used to compare two versions o
 
 The Diff DOM Streaming library extends the traditional Diff DOM algorithm by introducing support for comparing a DOM node with a streaming reader. This enables the library to process the changes incrementally as they occur during the diff process.
 
+For more info, read this [post](https://dev.to/aralroca/html-streaming-over-the-wire-a-deep-dive-2n20).
+
 ## Getting started
 
 ### NPM
