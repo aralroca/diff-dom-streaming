@@ -76,9 +76,19 @@ await diff(document, res.body.getReader());
 
 ## API
 
-`diff(oldNode: Node, reader: ReadableStreamDefaultReader, callback?: Callback)`
+`diff(oldNode: Node, reader: ReadableStreamDefaultReader, options?: Options)`
 
-This function performs a diffing operation between the `oldNode` and the DOM tree streamed through `reader`. It applies the necessary changes to update the `oldNode` accordingly. An optional `callback` function can be provided to handle node updates.
+This function performs a diffing operation between the `oldNode` and the DOM tree streamed through `reader`. It applies the necessary changes to update the `oldNode` accordingly. An optional `options` that include:
+
+```ts
+type Options = {
+  // calback to handle each new docoument node during the streaming
+  // (default: undefined)
+  onNextNode?: NextNodeCallback;
+  // update the DOM using document.startViewTransition (default: false)
+  transition?: boolean;
+};
+```
 
 ## Lists and `key` attribute
 
@@ -112,6 +122,7 @@ You can run the boxes demo with Vanillajs [here](https://stackblitz.com/edit/dif
 
 ![ezgif-4-1ff18912f4](https://github.com/aralroca/diff-dom-streaming/assets/13313058/f18c01c0-4dfe-473f-8817-fb905adc20c1)
 
+
 ## Acknowledgments
 
 The Diff DOM Algorithm with HTML Streaming is inspired by the [set-dom](https://github.com/DylanPiercey/set-dom) library by [@dylan_piercey](https://twitter.com/dylan_piercey) and a technique for parsing streams pioneered by [@jaffathecake](https://twitter.com/jaffathecake).
@@ -123,4 +134,3 @@ See [Contributing Guide](CONTRIBUTING.md) and please follow our [Code of Conduct
 ## License
 
 [MIT](LICENSE)
-
