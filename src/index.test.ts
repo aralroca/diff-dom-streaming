@@ -27,124 +27,78 @@ const diffCode = await transpiler.transform(
 const normalize = (t: string) =>
   t.replace(/\s*\n\s*/g, "").replaceAll("'", '"');
 
-describe.each(["chrome", "firefox", "safari"])(
-  "%s -> Diff test",
-  (browserName) => {
-    let browser: Browser;
-    let page: Page;
+describe("Diff test", () => {
+  let browser: Browser;
+  let page: Page;
 
-    async function testDiff({
-      oldHTMLString,
-      newHTMLStringChunks,
-      useForEeachStreamNode = false,
-      slowChunks = false,
-    }: {
-      oldHTMLString: string;
-      newHTMLStringChunks: string[];
-      useForEeachStreamNode?: boolean;
-      slowChunks?: boolean;
-    }): Promise<[string, any[], Node[]]> {
-      await page.setContent(normalize(oldHTMLString));
-      const [mutations, streamNodes] = await page.evaluate(
-        async ([
-          diffCode,
-          newHTMLStringChunks,
-          useForEeachStreamNode,
-          slowChunks,
-        ]) => {
-          eval(diffCode as string);
-          const encoder = new TextEncoder();
-          const readable = new ReadableStream({
-            start: async (controller) => {
-              for (const chunk of newHTMLStringChunks as string[]) {
-                if (slowChunks)
-                  await new Promise((resolve) => setTimeout(resolve, 100));
-                controller.enqueue(encoder.encode(chunk));
-              }
-              controller.close();
-            },
-          });
-          const allMutations: any[] = [];
-          const reader = readable.getReader();
-          const observer = new MutationObserver((mutations) => {
-            allMutations.push(
-              ...mutations.map((mutation, mutationIndex) => ({
-                type: mutation.type,
-                addedNodes: Array.from(mutation.addedNodes).map(
-                  (node, index) => ({
-                    nodeName: node.nodeName,
-                    nodeValue: node.nodeValue,
-                    keepsExistingNodeReference: node.isSameNode(
-                      mutations[mutationIndex - 1]?.removedNodes?.[index],
-                    ),
-                  }),
-                ),
-                removedNodes: Array.from(mutation.removedNodes).map(
-                  (node, index) => ({
-                    nodeName: node.nodeName,
-                    nodeValue: node.nodeValue,
-                  }),
-                ),
-                attributeName: mutation.attributeName,
-                tagName: (mutation.target as Element).tagName,
-                outerHTML: (mutation.target as Element).outerHTML,
-                oldValue: mutation.oldValue,
-              })),
-            );
-          });
+  beforeEach(async () => {
+    page = await browser.newPage();
+  });
 
-          observer.observe(document.documentElement, {
-            childList: true,
-            attributes: true,
-            subtree: true,
-            attributeOldValue: true,
-            characterData: true,
-            characterDataOldValue: true,
-          });
+  afterEach(async () => {
+    await page.close();
+  });
 
-          const streamNodes: Node[] = [];
+  afterAll(async () => {
+    await browser.close();
+  });
 
-          const forEachStreamNode = useForEeachStreamNode
-            ? (node: Node) => {
-                streamNodes.push({
-                  nodeName: node.nodeName,
-                  nodeValue: node.nodeValue,
-                } as Node);
-              }
-            : undefined;
-
-          await diff(document.documentElement!, reader, {
-            onNextNode: forEachStreamNode,
-          });
-
-          observer.disconnect();
-
-          return [allMutations, streamNodes];
-        },
-        [diffCode, newHTMLStringChunks, useForEeachStreamNode, slowChunks],
+  describe("Chrome View Transitions API", () => {
+    it("should not call document.startViewTransition for each DOM update with transition=false", async () => {
+      browser = await engine.chrome.launch();
+      const [newHTML, , , transitionApplied] = await testDiff({
+        oldHTMLString: `
+        <div>
+          <h1>hello world</h1>
+        </div>
+      `,
+        newHTMLStringChunks: ["<div>", "<h1>hello world!</h1>", "</div>"],
+        transition: false,
+      });
+      expect(newHTML).toBe(
+        normalize(`
+      <html>
+        <head></head>
+        <body>
+          <div>
+            <h1>hello world!</h1>
+          </div>
+        </body>
+      </html>
+    `),
       );
+      expect(transitionApplied).toBeFalse();
+    });
+    it("should call document.startViewTransition for each DOM update with transition=true", async () => {
+      browser = await engine.chrome.launch();
+      const [newHTML, , , transitionApplied] = await testDiff({
+        oldHTMLString: `
+        <div>
+          <h1>hello world</h1>
+        </div>
+      `,
+        newHTMLStringChunks: ["<div>", "<h1>hello world!</h1>", "</div>"],
+        transition: true,
+      });
+      expect(newHTML).toBe(
+        normalize(`
+      <html>
+        <head></head>
+        <body>
+          <div>
+            <h1>hello world!</h1>
+          </div>
+        </body>
+      </html>
+    `),
+      );
+      expect(transitionApplied).toBeTrue();
+    });
+  });
 
-      return [
-        (await page.content()).replace(/\s*\n\s*/g, "").replaceAll("'", '"'),
-        mutations,
-        streamNodes,
-      ];
-    }
-
+  describe.each(["chrome", "firefox", "safari"])("%s", (browserName) => {
     beforeAll(async () => {
       browser = await engine[browserName].launch();
-    });
-
-    beforeEach(async () => {
-      page = await browser.newPage();
-    });
-
-    afterEach(async () => {
-      await page.close();
-    });
-
-    afterAll(async () => {
-      await browser.close();
     });
 
     it("should error with invalid arguments", async () => {
@@ -1490,5 +1444,124 @@ describe.each(["chrome", "firefox", "safari"])(
         },
       ]);
     });
-  },
-);
+  });
+
+  async function testDiff({
+    oldHTMLString,
+    newHTMLStringChunks,
+    useForEeachStreamNode = false,
+    slowChunks = false,
+    transition = false,
+  }: {
+    oldHTMLString: string;
+    newHTMLStringChunks: string[];
+    useForEeachStreamNode?: boolean;
+    slowChunks?: boolean;
+    transition?: boolean;
+  }): Promise<[string, any[], Node[], boolean]> {
+    await page.setContent(normalize(oldHTMLString));
+    const [mutations, streamNodes, transitionApplied] = await page.evaluate(
+      async ([
+        diffCode,
+        newHTMLStringChunks,
+        useForEeachStreamNode,
+        slowChunks,
+        transition,
+      ]) => {
+        eval(diffCode as string);
+        const encoder = new TextEncoder();
+        const readable = new ReadableStream({
+          start: async (controller) => {
+            for (const chunk of newHTMLStringChunks as string[]) {
+              if (slowChunks)
+                await new Promise((resolve) => setTimeout(resolve, 100));
+              controller.enqueue(encoder.encode(chunk));
+            }
+            controller.close();
+          },
+        });
+        const allMutations: any[] = [];
+        const reader = readable.getReader();
+        const observer = new MutationObserver((mutations) => {
+          allMutations.push(
+            ...mutations.map((mutation, mutationIndex) => ({
+              type: mutation.type,
+              addedNodes: Array.from(mutation.addedNodes).map(
+                (node, index) => ({
+                  nodeName: node.nodeName,
+                  nodeValue: node.nodeValue,
+                  keepsExistingNodeReference: node.isSameNode(
+                    mutations[mutationIndex - 1]?.removedNodes?.[index],
+                  ),
+                }),
+              ),
+              removedNodes: Array.from(mutation.removedNodes).map(
+                (node, index) => ({
+                  nodeName: node.nodeName,
+                  nodeValue: node.nodeValue,
+                }),
+              ),
+              attributeName: mutation.attributeName,
+              tagName: (mutation.target as Element).tagName,
+              outerHTML: (mutation.target as Element).outerHTML,
+              oldValue: mutation.oldValue,
+            })),
+          );
+        });
+
+        observer.observe(document.documentElement, {
+          childList: true,
+          attributes: true,
+          subtree: true,
+          attributeOldValue: true,
+          characterData: true,
+          characterDataOldValue: true,
+        });
+
+        const streamNodes: Node[] = [];
+
+        const forEachStreamNode = useForEeachStreamNode
+          ? (node: Node) => {
+              streamNodes.push({
+                nodeName: node.nodeName,
+                nodeValue: node.nodeValue,
+              } as Node);
+            }
+          : undefined;
+
+        let transitionApplied = false;
+
+        if (document.startViewTransition) {
+          const copy = document.startViewTransition.bind(document);
+          document.startViewTransition = (v) => {
+            transitionApplied = true;
+            return copy(v);
+          };
+        }
+
+        await diff(document.documentElement!, reader, {
+          onNextNode: forEachStreamNode,
+          transition: transition as boolean,
+        });
+
+        observer.disconnect();
+
+        return [allMutations, streamNodes, transitionApplied];
+      },
+      [
+        diffCode,
+        newHTMLStringChunks,
+        useForEeachStreamNode,
+        slowChunks,
+        transition,
+      ],
+    );
+
+    return [
+      (await page.content()).replace(/\s*\n\s*/g, "").replaceAll("'", '"'),
+      mutations,
+      streamNodes,
+      transitionApplied,
+    ];
+  }
+});
