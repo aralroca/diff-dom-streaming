@@ -9,7 +9,12 @@ type Walker = {
   nextSibling: (node: Node) => Promise<Node | null>;
 };
 
-type Callback = (node: Node) => void;
+type NextNodeCallback = (node: Node) => void;
+
+type Options = {
+  onNextNode?: NextNodeCallback;
+  transition?: boolean;
+}
 
 const ELEMENT_TYPE = 1;
 const DOCUMENT_TYPE = 9;
@@ -21,9 +26,9 @@ const wait = () => new Promise((resolve) => requestAnimationFrame(resolve));
 export default async function diff(
   oldNode: Node,
   reader: ReadableStreamDefaultReader,
-  callback?: Callback,
+  options?: Options,
 ) {
-  const walker = await htmlStreamWalker(reader, callback);
+  const walker = await htmlStreamWalker(reader, options?.onNextNode);
   const newNode = walker.root!;
 
   if (oldNode.nodeType === DOCUMENT_TYPE) {
