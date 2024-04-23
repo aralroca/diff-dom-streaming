@@ -25,6 +25,8 @@ The Diff DOM (Document Object Model) algorithm is used to compare two versions o
 
 The Diff DOM Streaming library extends the traditional Diff DOM algorithm by introducing support for comparing a DOM node with a streaming reader. This enables the library to process the changes incrementally as they occur during the diff process.
 
+For more info, read this [post](https://dev.to/aralroca/html-streaming-over-the-wire-a-deep-dive-2n20).
+
 ## Getting started
 
 ### NPM
@@ -88,6 +90,23 @@ type Options = {
 };
 ```
 
+## Lists and `key` attribute
+
+Keys help to identify which items have changed, are added, or are removed. Keys should be given to the elements inside the array to give the elements a stable identity:
+
+```jsx 3
+const numbers = [1, 2, 3, 4, 5];
+const listItems = numbers.map((number) =>
+  <li key={number.toString()}>
+    {number}
+  </li>
+);
+```
+
+_(Example with JSX)_
+
+The `diff-dom-streaming` library takes into account the `key` attribute for these cases, if it does not exist, then see if they have `id`.
+
 ## Examples
 
 In the repo we have examples for you to try.
@@ -102,3 +121,16 @@ In the repo we have examples for you to try.
 You can run the boxes demo with Vanillajs [here](https://stackblitz.com/edit/diff-dom-streaming?file=index.js).
 
 ![ezgif-4-1ff18912f4](https://github.com/aralroca/diff-dom-streaming/assets/13313058/f18c01c0-4dfe-473f-8817-fb905adc20c1)
+
+
+## Acknowledgments
+
+The Diff DOM Algorithm with HTML Streaming is inspired by the [set-dom](https://github.com/DylanPiercey/set-dom) library by [@dylan_piercey](https://twitter.com/dylan_piercey) and a technique for parsing streams pioneered by [@jaffathecake](https://twitter.com/jaffathecake).
+
+## Contributing
+
+See [Contributing Guide](CONTRIBUTING.md) and please follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## License
+
+[MIT](LICENSE)
