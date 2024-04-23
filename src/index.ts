@@ -7,6 +7,7 @@ type Walker = {
   root: Node | null;
   firstChild: (node: Node) => Promise<Node | null>;
   nextSibling: (node: Node) => Promise<Node | null>;
+  applyTransition: (v: () => void) => void;
 };
 
 type NextNodeCallback = (node: Node) => void;
@@ -28,7 +29,7 @@ export default async function diff(
   reader: ReadableStreamDefaultReader,
   options?: Options,
 ) {
-  const walker = await htmlStreamWalker(reader, options?.onNextNode);
+  const walker = await htmlStreamWalker(reader, options);
   const newNode = walker.root!;
 
   if (oldNode.nodeType === DOCUMENT_TYPE) {
@@ -47,24 +48,29 @@ export default async function diff(
  */
 async function updateNode(oldNode: Node, newNode: Node, walker: Walker) {
   if (oldNode.nodeType !== newNode.nodeType) {
-    return oldNode.parentNode!.replaceChild(newNode.cloneNode(true), oldNode);
+    return walker.applyTransition(() =>
+      oldNode.parentNode!.replaceChild(newNode.cloneNode(true), oldNode),
+    );
   }
 
   if (oldNode.nodeType === ELEMENT_TYPE) {
     await setChildNodes(oldNode, newNode, walker);
 
-    if (oldNode.nodeName === newNode.nodeName) {
-      setAttributes(
-        (oldNode as Element).attributes,
-        (newNode as Element).attributes,
-      );
-    } else {
-      const clonedNewNode = newNode.cloneNode();
-      while (oldNode.firstChild) clonedNewNode.appendChild(oldNode.firstChild);
-      oldNode.parentNode!.replaceChild(clonedNewNode, oldNode);
-    }
+    walker.applyTransition(() => {
+      if (oldNode.nodeName === newNode.nodeName) {
+        setAttributes(
+          (oldNode as Element).attributes,
+          (newNode as Element).attributes,
+        );
+      } else {
+        const clonedNewNode = newNode.cloneNode();
+        while (oldNode.firstChild)
+          clonedNewNode.appendChild(oldNode.firstChild);
+        oldNode.parentNode!.replaceChild(clonedNewNode, oldNode);
+      }
+    });
   } else if (oldNode.nodeValue !== newNode.nodeValue) {
-    oldNode.nodeValue = newNode.nodeValue;
+    walker.applyTransition(() => (oldNode.nodeValue = newNode.nodeValue));
   }
 }
 
@@ -145,7 +151,9 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
     ) {
       delete keyedNodes[newKey];
       if (foundNode !== oldNode) {
-        oldParent.insertBefore(foundNode, oldNode);
+        walker.applyTransition(() =>
+          oldParent.insertBefore(foundNode!, oldNode),
+        );
       } else {
         oldNode = oldNode.nextSibling;
       }
@@ -156,13 +164,15 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
       oldNode = oldNode.nextSibling;
       if (getKey(checkOld)) {
         insertedNode = newNode.cloneNode(true);
-        oldParent.insertBefore(insertedNode, checkOld);
+        walker.applyTransition(() =>
+          oldParent.insertBefore(insertedNode!, checkOld!),
+        );
       } else {
         await updateNode(checkOld, newNode, walker);
       }
     } else {
       insertedNode = newNode.cloneNode(true);
-      oldParent.appendChild(insertedNode);
+      walker.applyTransition(() => oldParent.appendChild(insertedNode!));
     }
 
     if (insertedNode?.nodeType === ELEMENT_TYPE) {
@@ -177,14 +187,16 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
     newNode = (await walker.nextSibling(newNode)) as ChildNode;
   }
 
-  // Remove old keyed nodes.
-  for (oldKey in keyedNodes) {
-    extra--;
-    oldParent.removeChild(keyedNodes![oldKey]!);
-  }
+  walker.applyTransition(() => {
+    // Remove old keyed nodes.
+    for (oldKey in keyedNodes) {
+      extra--;
+      oldParent.removeChild(keyedNodes![oldKey]!);
+    }
 
-  // If we have any remaining unkeyed nodes remove them from the end.
-  while (--extra >= 0) oldParent.removeChild(oldParent.lastChild!);
+    // If we have any remaining unkeyed nodes remove them from the end.
+    while (--extra >= 0) oldParent.removeChild(oldParent.lastChild!);
+  });
 }
 
 function getKey(node: Node) {
@@ -196,7 +208,7 @@ function getKey(node: Node) {
  */
 async function htmlStreamWalker(
   streamReader: ReadableStreamDefaultReader,
-  callback: (node: Node) => void = () => {},
+  options: Options = {},
 ): Promise<Walker> {
   const doc = document.implementation.createHTMLDocument();
   let lastNodeAdded: Element | null = null;
@@ -240,7 +252,7 @@ async function htmlStreamWalker(
 
       let nextNode = node[field];
 
-      if (nextNode) callback(nextNode);
+      if (nextNode) options.onNextNode?.(nextNode);
 
       while ((nextNode as Element)?.hasAttribute?.(IS_LAST_CHUNK)) {
         lastNodeAdded = nextNode as Element;
@@ -255,5 +267,9 @@ async function htmlStreamWalker(
     root: doc.documentElement,
     firstChild: next("firstChild"),
     nextSibling: next("nextSibling"),
+    applyTransition: (v) =>
+      options.transition && document.startViewTransition
+        ? document.startViewTransition(v)
+        : v(),
   };
 }

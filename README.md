@@ -96,11 +96,9 @@ Keys help to identify which items have changed, are added, or are removed. Keys 
 
 ```jsx 3
 const numbers = [1, 2, 3, 4, 5];
-const listItems = numbers.map((number) =>
-  <li key={number.toString()}>
-    {number}
-  </li>
-);
+const listItems = numbers.map((number) => (
+  <li key={number.toString()}>{number}</li>
+));
 ```
 
 _(Example with JSX)_
@@ -121,7 +119,6 @@ In the repo we have examples for you to try.
 You can run the boxes demo with Vanillajs [here](https://stackblitz.com/edit/diff-dom-streaming?file=index.js).
 
 ![ezgif-4-1ff18912f4](https://github.com/aralroca/diff-dom-streaming/assets/13313058/f18c01c0-4dfe-473f-8817-fb905adc20c1)
-
 
 ## Acknowledgments
 
