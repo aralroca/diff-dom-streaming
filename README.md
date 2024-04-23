@@ -74,9 +74,19 @@ await diff(document, res.body.getReader());
 
 ## API
 
-`diff(oldNode: Node, reader: ReadableStreamDefaultReader, callback?: Callback)`
+`diff(oldNode: Node, reader: ReadableStreamDefaultReader, options?: Options)`
 
-This function performs a diffing operation between the `oldNode` and the DOM tree streamed through `reader`. It applies the necessary changes to update the `oldNode` accordingly. An optional `callback` function can be provided to handle node updates.
+This function performs a diffing operation between the `oldNode` and the DOM tree streamed through `reader`. It applies the necessary changes to update the `oldNode` accordingly. An optional `options` that include:
+
+```ts
+type Options = {
+  // calback to handle each new docoument node during the streaming
+  // (default: undefined)
+  onNextNode?: NextNodeCallback;
+  // update the DOM using document.startViewTransition (default: false)
+  transition?: boolean;
+};
+```
 
 ## Examples
 
@@ -92,4 +102,3 @@ In the repo we have examples for you to try.
 You can run the boxes demo with Vanillajs [here](https://stackblitz.com/edit/diff-dom-streaming?file=index.js).
 
 ![ezgif-4-1ff18912f4](https://github.com/aralroca/diff-dom-streaming/assets/13313058/f18c01c0-4dfe-473f-8817-fb905adc20c1)
-

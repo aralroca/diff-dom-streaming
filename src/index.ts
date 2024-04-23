@@ -14,7 +14,7 @@ type NextNodeCallback = (node: Node) => void;
 type Options = {
   onNextNode?: NextNodeCallback;
   transition?: boolean;
-}
+};
 
 const ELEMENT_TYPE = 1;
 const DOCUMENT_TYPE = 9;

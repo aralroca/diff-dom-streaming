@@ -114,7 +114,7 @@ describe.each(["chrome", "firefox", "safari"])(
             : undefined;
 
           await diff(document.documentElement!, reader, {
-            onNextNode: forEachStreamNode
+            onNextNode: forEachStreamNode,
           });
 
           observer.disconnect();
