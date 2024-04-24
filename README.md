@@ -105,14 +105,26 @@ _(Example with JSX)_
 
 The `diff-dom-streaming` library takes into account the `key` attribute for these cases, if it does not exist, then see if they have `id`.
 
+## Transitions between pages (View Transition API)
+
+You can activate the View Transition API updating the DOM with this property:
+
+```diff
+await diff(document, res.body.getReader(), {
++ transition: true
+})
+```
+
 ## Examples
 
 In the repo we have examples for you to try.
 
 ### Locally
 
-1. Clone this repository
-2. Run `bun run example`
+There are some examples:
+
+- Run `bun run example:boxes`
+- Run `bun run examples:spa-like`
 
 ### Stackblitz
 
