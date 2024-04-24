@@ -269,6 +269,7 @@ async function htmlStreamWalker(
     nextSibling: next("nextSibling"),
     applyTransition: (v) => {
       if (options.transition && document.startViewTransition) {
+        // @ts-ignore
         window.lastDiffTransition = document.startViewTransition(v);
       } else v();
     },
