@@ -1,8 +1,14 @@
 /**
  * This file contains a diffing algorithm that is used to update the DOM
  * inspired by the set-dom library https://github.com/DylanPiercey/set-dom
- * but using streaming.
+ * but using HTML streaming and View Transition API.
  */
+declare global {
+  interface Window {
+    lastDiffTransition?: ViewTransition;
+  }
+}
+
 type Walker = {
   root: Node | null;
   firstChild: (node: Node) => Promise<Node | null>;
@@ -267,9 +273,10 @@ async function htmlStreamWalker(
     root: doc.documentElement,
     firstChild: next("firstChild"),
     nextSibling: next("nextSibling"),
-    applyTransition: (v) =>
-      options.transition && document.startViewTransition
-        ? document.startViewTransition(v)
-        : v(),
+    applyTransition: (v) => {
+      if (options.transition && document.startViewTransition) {
+        window.lastDiffTransition = document.startViewTransition(v);
+      } else v();
+    },
   };
 }
