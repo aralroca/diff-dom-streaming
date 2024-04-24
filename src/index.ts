@@ -3,12 +3,6 @@
  * inspired by the set-dom library https://github.com/DylanPiercey/set-dom
  * but using HTML streaming and View Transition API.
  */
-declare global {
-  interface Window {
-    lastDiffTransition?: ViewTransition;
-  }
-}
-
 type Walker = {
   root: Node | null;
   firstChild: (node: Node) => Promise<Node | null>;
