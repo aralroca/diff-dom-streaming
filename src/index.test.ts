@@ -1529,20 +1529,12 @@ describe("Diff test", () => {
             }
           : undefined;
 
-        let transitionApplied = false;
-
-        if (document.startViewTransition) {
-          const copy = document.startViewTransition.bind(document);
-          document.startViewTransition = (v) => {
-            transitionApplied = true;
-            return copy(v);
-          };
-        }
-
         await diff(document.documentElement!, reader, {
           onNextNode: forEachStreamNode,
           transition: transition as boolean,
         });
+
+        const transitionApplied = !!window.lastDiffTransition;
 
         observer.disconnect();
 

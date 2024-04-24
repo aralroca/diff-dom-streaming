@@ -1,7 +1,18 @@
-type Callback = (node: Node) => void;
-
 export default function diff(
   oldNode: Node,
   reader: ReadableStreamDefaultReader,
-  forEachStreamNode?: Callback,
+  options?: Options,
 ): Promise<void>;
+
+declare global {
+  interface Window {
+    lastDiffTransition?: ViewTransition;
+  }
+}
+
+type NextNodeCallback = (node: Node) => void;
+
+type Options = {
+  onNextNode?: NextNodeCallback;
+  transition?: boolean;
+};
