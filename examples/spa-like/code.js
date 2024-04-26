@@ -1,4 +1,3 @@
-let controller = new AbortController();
 const scripts = new Set();
 
 function spaNavigation(event) {
@@ -8,9 +7,7 @@ function spaNavigation(event) {
 
   event.intercept({
     async handler() {
-      controller.abort();
-      controller = new AbortController();
-      const res = await fetch(url.pathname, { signal: controller.signal });
+      const res = await fetch(url.pathname, { signal: event.signal });
 
       if (res.ok) {
         const diffModule = await import(

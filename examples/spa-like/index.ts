@@ -29,7 +29,7 @@ const server = Bun.serve({
           <html>
             <head>
               <title>SPA-like navigation with Diff DOM Streaming</title>
-              <link rel="stylesheet" href="style.css">
+              <link rel="stylesheet" href="style.css"></link>
             </head>
             <body>
               <nav>
@@ -65,10 +65,10 @@ const server = Bun.serve({
                   const ususpensedTemplate = document.getElementById('suspensed-content');
 
                   if (suspensedElement && ususpensedTemplate) {
-                   document.startViewTransition(() => {             
+                   // document.startViewTransition(() => {             
                       suspensedElement.replaceWith(ususpensedTemplate.content.cloneNode(true));
                       ususpensedTemplate.remove();
-                  });
+                  // });
                   }
                 }
                 unsuspense();
