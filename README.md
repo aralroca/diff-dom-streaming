@@ -108,7 +108,7 @@ _(Example with JSX)_
 
 The `diff-dom-streaming` library takes into account the `key` attribute for these cases, if it does not exist, then see if they have `id`.
 
-## Transitions between pages (View Transition API)
+## Transitions between pages (View Transition API)
 
 You can activate the View Transition API updating the DOM with this property:
 
@@ -116,6 +116,18 @@ You can activate the View Transition API updating the DOM with this property:
 await diff(document, res.body.getReader(), {
 + transition: true
 })
+```
+
+### Incremental vs full transition
+
+Many times it will make more sense to use a complete transition instead of incremental, especially if we do not use suspense and we want a single transition at once instead of several, in this case, instead of using the configuration, we can use the View Transition API directly:
+
+```diff
++ document.startViewTransition(async () => {
+await diff(document, res.body.getReader(), {
+-  transition: true,
+});
++});
 ```
 
 ## Examples
