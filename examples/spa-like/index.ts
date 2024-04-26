@@ -65,10 +65,10 @@ const server = Bun.serve({
                   const ususpensedTemplate = document.getElementById('suspensed-content');
 
                   if (suspensedElement && ususpensedTemplate) {
-                   // document.startViewTransition(() => {             
+                    document.startViewTransition(() => {             
                       suspensedElement.replaceWith(ususpensedTemplate.content.cloneNode(true));
                       ususpensedTemplate.remove();
-                  // });
+                   });
                   }
                 }
                 unsuspense();
