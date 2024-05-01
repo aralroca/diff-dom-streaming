@@ -5,9 +5,9 @@
  */
 type Walker = {
   root: Node | null;
-  firstChild: (node: Node) => Promise<Node | null>;
-  nextSibling: (node: Node) => Promise<Node | null>;
-  applyTransition: (v: () => void) => void;
+  [FIRST_CHILD]: (node: Node) => Promise<Node | null>;
+  [NEXT_SIBLING]: (node: Node) => Promise<Node | null>;
+  [APPLY_TRANSITION]: (v: () => void) => void;
 };
 
 type NextNodeCallback = (node: Node) => void;
@@ -21,6 +21,9 @@ const ELEMENT_TYPE = 1;
 const DOCUMENT_TYPE = 9;
 const DOCUMENT_FRAGMENT_TYPE = 11;
 const IS_LAST_CHUNK = "i-lc";
+const APPLY_TRANSITION = 0;
+const FIRST_CHILD = 1;
+const NEXT_SIBLING = 2;
 const decoder = new TextDecoder();
 const wait = () => new Promise((resolve) => requestAnimationFrame(resolve));
 
@@ -48,7 +51,7 @@ export default async function diff(
  */
 async function updateNode(oldNode: Node, newNode: Node, walker: Walker) {
   if (oldNode.nodeType !== newNode.nodeType) {
-    return walker.applyTransition(() =>
+    return walker[APPLY_TRANSITION](() =>
       oldNode.parentNode!.replaceChild(newNode.cloneNode(true), oldNode),
     );
   }
@@ -56,7 +59,7 @@ async function updateNode(oldNode: Node, newNode: Node, walker: Walker) {
   if (oldNode.nodeType === ELEMENT_TYPE) {
     await setChildNodes(oldNode, newNode, walker);
 
-    walker.applyTransition(() => {
+    walker[APPLY_TRANSITION](() => {
       if (oldNode.nodeName === newNode.nodeName) {
         setAttributes(
           (oldNode as Element).attributes,
@@ -70,7 +73,7 @@ async function updateNode(oldNode: Node, newNode: Node, walker: Walker) {
       }
     });
   } else if (oldNode.nodeValue !== newNode.nodeValue) {
-    walker.applyTransition(() => (oldNode.nodeValue = newNode.nodeValue));
+    walker[APPLY_TRANSITION](() => (oldNode.nodeValue = newNode.nodeValue));
   }
 }
 
@@ -100,6 +103,9 @@ function setAttributes(
     name = oldAttribute.localName;
     newAttribute = oldAttributes.getNamedItemNS(namespace, name);
 
+    // Avoid register already registered server action in frameworks like Brisa
+    if (oldAttribute.name === "data-action") continue;
+
     if (!newAttribute) {
       // Add a new attribute.
       newAttributes.removeNamedItemNS(namespace, name);
@@ -121,7 +127,7 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
   let foundNode;
   let keyedNodes: Record<string, Node> | null = null;
   let oldNode = oldParent.firstChild;
-  let newNode = await walker.firstChild(newParent);
+  let newNode = await walker[FIRST_CHILD](newParent);
   let extra = 0;
 
   // Extract keyed nodes from previous children and keep track of total count.
@@ -151,7 +157,7 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
     ) {
       delete keyedNodes[newKey];
       if (foundNode !== oldNode) {
-        walker.applyTransition(() =>
+        walker[APPLY_TRANSITION](() =>
           oldParent.insertBefore(foundNode!, oldNode),
         );
       } else {
@@ -164,7 +170,7 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
       oldNode = oldNode.nextSibling;
       if (getKey(checkOld)) {
         insertedNode = newNode.cloneNode(true);
-        walker.applyTransition(() =>
+        walker[APPLY_TRANSITION](() =>
           oldParent.insertBefore(insertedNode!, checkOld!),
         );
       } else {
@@ -172,7 +178,7 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
       }
     } else {
       insertedNode = newNode.cloneNode(true);
-      walker.applyTransition(() => oldParent.appendChild(insertedNode!));
+      walker[APPLY_TRANSITION](() => oldParent.appendChild(insertedNode!));
     }
 
     if (insertedNode?.nodeType === ELEMENT_TYPE) {
@@ -184,10 +190,10 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
       if (lastChunk) await updateNode(insertedNode, newNode, walker);
     }
 
-    newNode = (await walker.nextSibling(newNode)) as ChildNode;
+    newNode = (await walker[NEXT_SIBLING](newNode)) as ChildNode;
   }
 
-  walker.applyTransition(() => {
+  walker[APPLY_TRANSITION](() => {
     // Remove old keyed nodes.
     for (oldKey in keyedNodes) {
       extra--;
@@ -265,9 +271,9 @@ async function htmlStreamWalker(
 
   return {
     root: doc.documentElement,
-    firstChild: next("firstChild"),
-    nextSibling: next("nextSibling"),
-    applyTransition: (v) => {
+    [FIRST_CHILD]: next("firstChild"),
+    [NEXT_SIBLING]: next("nextSibling"),
+    [APPLY_TRANSITION]: (v) => {
       if (options.transition && document.startViewTransition) {
         // @ts-ignore
         window.lastDiffTransition = document.startViewTransition(v);
