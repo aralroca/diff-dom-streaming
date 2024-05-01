@@ -100,6 +100,9 @@ function setAttributes(
     name = oldAttribute.localName;
     newAttribute = oldAttributes.getNamedItemNS(namespace, name);
 
+    // Avoid register already registered server action in frameworks like Brisa
+    if (oldAttribute.name === "data-action") continue;
+
     if (!newAttribute) {
       // Add a new attribute.
       newAttributes.removeNamedItemNS(namespace, name);

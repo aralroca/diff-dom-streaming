@@ -1444,6 +1444,26 @@ describe("Diff test", () => {
         },
       ]);
     });
+
+    it('should not add again the "data-action" attribute after diff to avoid registering server actions twice', async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
+        <div>foo</div>
+      `,
+        newHTMLStringChunks: ['<div data-action="foo">foo</div>'],
+      });
+      expect(newHTML).toBe(
+        normalize(`
+      <html>
+        <head></head>
+        <body>
+          <div>foo</div>
+        </body>
+      </html>
+    `),
+      );
+      expect(mutations).toEqual([]);
+    });
   });
 
   async function testDiff({
@@ -1534,6 +1554,7 @@ describe("Diff test", () => {
           transition: transition as boolean,
         });
 
+        // @ts-ignore
         const transitionApplied = !!window.lastDiffTransition;
 
         observer.disconnect();
