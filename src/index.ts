@@ -69,7 +69,8 @@ async function updateNode(oldNode: Node, newNode: Node, walker: Walker) {
           );
         }
       } else {
-        const clonedNewNode = newNode.cloneNode();
+        const hasDocumentFragmentInside = newNode.nodeName === "TEMPLATE";
+        const clonedNewNode = newNode.cloneNode(hasDocumentFragmentInside);
         while (oldNode.firstChild)
           clonedNewNode.appendChild(oldNode.firstChild);
         oldNode.parentNode!.replaceChild(clonedNewNode, oldNode);
@@ -90,7 +91,7 @@ function setAttributes(
   let i, oldAttribute, newAttribute, namespace, name;
 
   // Remove old attributes.
-  for (i = oldAttributes.length; i--; ) {
+  for (i = oldAttributes.length; i--;) {
     oldAttribute = oldAttributes[i];
     namespace = oldAttribute.namespaceURI;
     name = oldAttribute.localName;
@@ -100,7 +101,7 @@ function setAttributes(
   }
 
   // Set new attributes.
-  for (i = newAttributes.length; i--; ) {
+  for (i = newAttributes.length; i--;) {
     oldAttribute = newAttributes[i];
     namespace = oldAttribute.namespaceURI;
     name = oldAttribute.localName;
