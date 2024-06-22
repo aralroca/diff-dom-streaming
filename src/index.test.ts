@@ -1464,6 +1464,37 @@ describe("Diff test", () => {
       );
       expect(mutations).toEqual([]);
     });
+
+    it("should options.shouldIgnoreNode work", async () => {
+      const [newHTML] = await testDiff({
+        oldHTMLString: `
+        <div>
+          <div>foo</div>
+          <div id="ignore">bar</div>
+        </div>
+      `,
+        newHTMLStringChunks: [
+          "<html>",
+          "<head></head>",
+          "<body>",
+          "<div>bar</div>",
+          "<div id='ignore'>bazz!</div>",
+          "</body>",
+          "</html>",
+        ],
+        ignoreId: true,
+      });
+      expect(newHTML).toBe(
+        normalize(`
+        <html>
+          <head></head>
+          <body>
+              <div>bar</div>
+          </body>
+        </html>
+    `),
+      );
+    });
   });
 
   async function testDiff({
@@ -1472,12 +1503,14 @@ describe("Diff test", () => {
     useForEeachStreamNode = false,
     slowChunks = false,
     transition = false,
+    ignoreId = false,
   }: {
     oldHTMLString: string;
     newHTMLStringChunks: string[];
     useForEeachStreamNode?: boolean;
     slowChunks?: boolean;
     transition?: boolean;
+    ignoreId?: boolean;
   }): Promise<[string, any[], Node[], boolean]> {
     await page.setContent(normalize(oldHTMLString));
     const [mutations, streamNodes, transitionApplied] = await page.evaluate(
@@ -1487,6 +1520,7 @@ describe("Diff test", () => {
         useForEeachStreamNode,
         slowChunks,
         transition,
+        ignoreId,
       ]) => {
         eval(diffCode as string);
         const encoder = new TextEncoder();
@@ -1542,16 +1576,20 @@ describe("Diff test", () => {
 
         const forEachStreamNode = useForEeachStreamNode
           ? (node: Node) => {
-              streamNodes.push({
-                nodeName: node.nodeName,
-                nodeValue: node.nodeValue,
-              } as Node);
-            }
+            streamNodes.push({
+              nodeName: node.nodeName,
+              nodeValue: node.nodeValue,
+            } as Node);
+          }
           : undefined;
 
         await diff(document.documentElement!, reader, {
           onNextNode: forEachStreamNode,
           transition: transition as boolean,
+          shouldIgnoreNode(node: Node | null) {
+            if (!ignoreId) return false;
+            return (node as Element)?.id === "ignore";
+          },
         });
 
         // @ts-ignore
@@ -1567,6 +1605,7 @@ describe("Diff test", () => {
         useForEeachStreamNode,
         slowChunks,
         transition,
+        ignoreId,
       ],
     );
 
