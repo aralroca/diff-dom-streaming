@@ -1486,7 +1486,7 @@ describe("Diff test", () => {
             {
               nodeName: "#text",
               nodeValue: "foo",
-            }
+            },
           ],
           tagName: "DIV",
           type: "childList",
@@ -1501,7 +1501,8 @@ describe("Diff test", () => {
           ],
           attributeName: null,
           oldValue: null,
-          outerHTML: '<body><template id="U:1"><div>bar</div></template></body>',
+          outerHTML:
+            '<body><template id="U:1"><div>bar</div></template></body>',
           removedNodes: [
             {
               nodeName: "DIV",
@@ -1514,7 +1515,7 @@ describe("Diff test", () => {
       ]);
     });
 
-    it('should diff with body without div wrapper and with div wrapper', async () => {
+    it("should diff with body without div wrapper and with div wrapper", async () => {
       const [newHTML] = await testDiff({
         oldHTMLString: `
         <html>
@@ -1559,7 +1560,7 @@ describe("Diff test", () => {
           </body>
         </html>`),
       );
-    })
+    });
 
     it('should not add again the "data-action" attribute after diff to avoid registering server actions twice', async () => {
       const [newHTML, mutations] = await testDiff({
