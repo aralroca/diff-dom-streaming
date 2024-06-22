@@ -90,6 +90,8 @@ type Options = {
   onNextNode?: NextNodeCallback;
   // update the DOM using document.startViewTransition (default: false)
   transition?: boolean;
+  // callback to ignore nodes (default: undefined)
+  shouldIgnoreNode?: (node: Node | null) => boolean;
 };
 ```
 

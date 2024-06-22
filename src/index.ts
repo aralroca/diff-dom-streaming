@@ -15,6 +15,7 @@ type NextNodeCallback = (node: Node) => void;
 type Options = {
   onNextNode?: NextNodeCallback;
   transition?: boolean;
+  shouldIgnoreNode?: (node: Node | null) => boolean;
 };
 
 const ELEMENT_TYPE = 1;
@@ -257,6 +258,10 @@ async function htmlStreamWalker(
       if (!node) return null;
 
       let nextNode = node[field];
+
+      while (options.shouldIgnoreNode?.(nextNode)) {
+        nextNode = nextNode![field];
+      }
 
       if (nextNode) options.onNextNode?.(nextNode);
 
