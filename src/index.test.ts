@@ -1719,11 +1719,11 @@ describe("Diff test", () => {
 
         const forEachStreamNode = useForEeachStreamNode
           ? (node: Node) => {
-            streamNodes.push({
-              nodeName: node.nodeName,
-              nodeValue: node.nodeValue,
-            } as Node);
-          }
+              streamNodes.push({
+                nodeName: node.nodeName,
+                nodeValue: node.nodeValue,
+              } as Node);
+            }
           : undefined;
 
         await diff(document.documentElement!, reader, {

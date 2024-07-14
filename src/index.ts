@@ -152,7 +152,6 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
   // Loop over new nodes and perform updates.
   while (newNode) {
     let insertedNode;
-    extra--;
 
     if (
       keyedNodes &&
@@ -195,6 +194,10 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
     }
 
     newNode = (await walker[NEXT_SIBLING](newNode)) as ChildNode;
+
+    // If we didn't insert a node this means we are updating an existing one, so we
+    // need to decrement the extra counter, so we can skip removing the old node.
+    if (!insertedNode) extra--;
   }
 
   walker[APPLY_TRANSITION](() => {
