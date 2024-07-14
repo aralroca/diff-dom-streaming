@@ -1465,6 +1465,32 @@ describe("Diff test", () => {
       expect(mutations).toEqual([]);
     });
 
+    it("should change the content of the BODY but keep the old attributes (theme, etc)", async () => {
+      const [newHTML] = await testDiff({
+        oldHTMLString: `
+        <html>
+          <head></head>
+          <body data-theme="dark">
+            <div>foo</div>
+          </body>
+        </html>
+      `,
+        newHTMLStringChunks: [
+          "<html><head></head><body><div>bar</div></body></html>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
+      <html>
+        <head></head>
+        <body data-theme="dark">
+          <div>bar</div>
+        </body>
+      </html>
+    `),
+      );
+    });
+
     it("should options.shouldIgnoreNode work", async () => {
       const [newHTML] = await testDiff({
         oldHTMLString: `
@@ -1576,11 +1602,11 @@ describe("Diff test", () => {
 
         const forEachStreamNode = useForEeachStreamNode
           ? (node: Node) => {
-            streamNodes.push({
-              nodeName: node.nodeName,
-              nodeValue: node.nodeValue,
-            } as Node);
-          }
+              streamNodes.push({
+                nodeName: node.nodeName,
+                nodeValue: node.nodeValue,
+              } as Node);
+            }
           : undefined;
 
         await diff(document.documentElement!, reader, {
