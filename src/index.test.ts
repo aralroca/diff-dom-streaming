@@ -1445,6 +1445,123 @@ describe("Diff test", () => {
       ]);
     });
 
+    it('should replace a div to "template" tag with the content', async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
+        <html>
+          <head></head>
+          <body>
+            <div>foo</div>
+          </body>
+        </html>
+      `,
+        newHTMLStringChunks: [
+          "<html>",
+          "<head></head>",
+          "<body>",
+          '<template id="U:1"><div>bar</div></template>',
+          "</body>",
+          "</html>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
+      <html>
+        <head></head>
+        <body>
+          <template id="U:1">
+            <div>bar</div>
+          </template>
+        </body>
+      </html>
+    `),
+      );
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML: "<div></div>",
+          removedNodes: [
+            {
+              nodeName: "#text",
+              nodeValue: "foo",
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [
+            {
+              nodeName: "TEMPLATE",
+              nodeValue: null,
+              keepsExistingNodeReference: false,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<body><template id="U:1"><div>bar</div></template></body>',
+          removedNodes: [
+            {
+              nodeName: "DIV",
+              nodeValue: null,
+            },
+          ],
+          tagName: "BODY",
+          type: "childList",
+        },
+      ]);
+    });
+
+    it("should diff with body without div wrapper and with div wrapper", async () => {
+      const [newHTML] = await testDiff({
+        oldHTMLString: `
+        <html>
+          <head></head>
+          <body>
+            <script id="foo">(()=>{})();</script>
+            <div class="flex flex-col items-center justify-center px-6 py-16">
+              This will be a landingpage. But you can go to the admin for now <a href="/en/admin">login page</a>
+            </div>
+            <error-dialog skipssr=""></error-dialog>
+          </body>
+        </html>
+      `,
+        newHTMLStringChunks: [
+          "<html>",
+          "<head></head>",
+          "<body>",
+          "<div>",
+          "<script id='foo'>(()=>{})();</script>",
+          "<div class='flex flex-col items-center justify-center px-6 py-16'>",
+          "This will be a Admin Page. But you can go to the admin for now <a href='/en'>home page</a>",
+          "</div>",
+          "</div>",
+          '<error-dialog skipssr=""></error-dialog>',
+          "</body>",
+          "</html>",
+        ],
+      });
+
+      expect(newHTML).toBe(
+        normalize(`
+        <html>
+          <head></head>
+          <body>
+            <div>
+              <script id="foo">(()=>{})();</script>
+              <div class="flex flex-col items-center justify-center px-6 py-16">
+                This will be a Admin Page. But you can go to the admin for now <a href="/en">home page</a>
+              </div>
+            </div>
+            <error-dialog skipssr=""></error-dialog>
+          </body>
+        </html>`),
+      );
+    });
+
     it('should not add again the "data-action" attribute after diff to avoid registering server actions twice', async () => {
       const [newHTML, mutations] = await testDiff({
         oldHTMLString: `
