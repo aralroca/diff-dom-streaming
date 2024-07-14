@@ -62,10 +62,12 @@ async function updateNode(oldNode: Node, newNode: Node, walker: Walker) {
 
     walker[APPLY_TRANSITION](() => {
       if (oldNode.nodeName === newNode.nodeName) {
-        setAttributes(
-          (oldNode as Element).attributes,
-          (newNode as Element).attributes,
-        );
+        if (newNode.nodeName !== "BODY") {
+          setAttributes(
+            (oldNode as Element).attributes,
+            (newNode as Element).attributes,
+          );
+        }
       } else {
         const clonedNewNode = newNode.cloneNode();
         while (oldNode.firstChild)
