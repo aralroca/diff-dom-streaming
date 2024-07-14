@@ -136,6 +136,50 @@ await diff(document, res.body.getReader(), {
 +});
 ```
 
+## Strong Opinion on BODY Tag Attributes during Diffing
+
+Our library has a strong opinion regarding the handling of the BODY tag attributes during the HTML diffing process. This approach is designed to provide greater flexibility and control over runtime modifications, such as themes, fonts, and other display properties that are managed through BODY tag attributes.
+
+During the diffing process, all content within the HTML is typically updated to reflect the latest changes. However, we recognize that certain attributes of the BODY tag, like `class` and custom `data-attributes`, are often modified at runtime to control the presentation of the content. To avoid overwriting these runtime changes, our library's diffing algorithm specifically excludes these attributes from being updated.
+
+### Key Points
+
+- **Preservation of Attributes**: Attributes of the BODY tag (e.g., `class`, `data-attributes`) are preserved and not overwritten during the diffing process.
+- **Consistent Display**: This ensures that runtime modifications, such as theme changes or other display-related adjustments, remain intact across navigations and updates.
+- **Enhanced Customization**: Users can rely on the BODY tag attributes to manage display properties without concern for them being reset during content updates.
+
+### Example
+
+Consider the following scenario where the initial HTML and updated HTML are as follows:
+
+#### Initial HTML
+
+```html
+<body class="light" data-theme="default">
+  <div>Content A</div>
+</body>
+```
+
+#### Updated HTML
+
+After a navigation or content update, the new HTML may look like this:
+
+```html
+<body class="dark" data-theme="night">
+  <div>Content B</div>
+</body>
+```
+
+### Result After Diffing
+
+After the diffing process, the resulting HTML will be as follows:
+
+```html
+<body class="light" data-theme="default">
+  <div>Content B</div>
+</body>
+```
+
 ## Examples
 
 In the repo we have examples for you to try.
