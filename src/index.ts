@@ -240,24 +240,22 @@ async function htmlStreamWalker(
   const decoderStream = new TextDecoderStream();
   const decoderStreamReader = decoderStream.readable.getReader();
 
-  stream.pipeTo(decoderStream.writable).then(() => {
-    doc.close();
-    lastNodeAdded?.removeAttribute(IS_LAST_CHUNK);
-    observer.disconnect();
-  });
+  stream.pipeTo(decoderStream.writable);
+  processStream();
 
-  decoderStreamReader.read().then(processChunk);
-
-  function processChunk({ done, value }: any) {
-    if (done) {
+  async function processStream() {
+    try {
+      while (true) {
+        const { done, value } = await decoderStreamReader.read();
+        if (done) break;
+  
+        doc.write(value);
+      }
+    } finally {
       doc.close();
       lastNodeAdded?.removeAttribute(IS_LAST_CHUNK);
       observer.disconnect();
-      return;
     }
-
-    doc.write(value);
-    decoderStreamReader.read().then(processChunk);
   }
 
   while (
