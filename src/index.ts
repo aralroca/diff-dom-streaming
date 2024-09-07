@@ -8,6 +8,7 @@ type Walker = {
   [FIRST_CHILD]: (node: Node) => Promise<Node | null>;
   [NEXT_SIBLING]: (node: Node) => Promise<Node | null>;
   [APPLY_TRANSITION]: (v: () => void) => void;
+  [IS_LAST_NODE_OF_CHUNK]?: (node: Node) => boolean;
 };
 
 type NextNodeCallback = (node: Node) => void;
@@ -21,10 +22,10 @@ type Options = {
 const ELEMENT_TYPE = 1;
 const DOCUMENT_TYPE = 9;
 const DOCUMENT_FRAGMENT_TYPE = 11;
-const IS_LAST_CHUNK = "i-lc";
 const APPLY_TRANSITION = 0;
 const FIRST_CHILD = 1;
 const NEXT_SIBLING = 2;
+const IS_LAST_NODE_OF_CHUNK = 3;
 const wait = () => new Promise((resolve) => requestAnimationFrame(resolve));
 
 export default async function diff(
@@ -184,12 +185,8 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
     }
 
     if (insertedNode?.nodeType === ELEMENT_TYPE) {
-      const lastChunk = (newNode as Element).querySelector(
-        `[${IS_LAST_CHUNK}]`,
-      );
-
-      while (lastChunk?.hasAttribute(IS_LAST_CHUNK)) await wait();
-      if (lastChunk) await updateNode(insertedNode, newNode, walker);
+      while (walker[IS_LAST_NODE_OF_CHUNK]!(newNode)) await wait();
+      await updateNode(insertedNode, newNode, walker);
     }
 
     newNode = (await walker[NEXT_SIBLING](newNode)) as ChildNode;
@@ -223,22 +220,11 @@ async function htmlStreamWalker(
   options: Options = {},
 ): Promise<Walker> {
   const doc = document.implementation.createHTMLDocument();
-  let lastNodeAdded: Element | null = null;
 
-  const observer = new MutationObserver((mutationList) => {
-    const el = mutationList[mutationList.length - 1].addedNodes[0] as Element;
-    lastNodeAdded?.removeAttribute(IS_LAST_CHUNK);
-    lastNodeAdded =
-      (el?.nodeType === ELEMENT_TYPE
-        ? el
-        : el?.previousElementSibling || el?.parentElement) || null;
-    lastNodeAdded?.setAttribute(IS_LAST_CHUNK, "");
-  });
-
-  observer.observe(doc, { childList: true, subtree: true });
   doc.open();
   const decoderStream = new TextDecoderStream();
   const decoderStreamReader = decoderStream.readable.getReader();
+  let streamInProgress = true;
 
   stream.pipeTo(decoderStream.writable);
   processStream();
@@ -247,21 +233,19 @@ async function htmlStreamWalker(
     try {
       while (true) {
         const { done, value } = await decoderStreamReader.read();
-        if (done) break;
-  
+        if (done) {
+          streamInProgress = false;
+          break;
+        }
+
         doc.write(value);
       }
     } finally {
       doc.close();
-      lastNodeAdded?.removeAttribute(IS_LAST_CHUNK);
-      observer.disconnect();
     }
   }
 
-  while (
-    !doc.documentElement ||
-    doc.documentElement.hasAttribute(IS_LAST_CHUNK)
-  ) {
+  while (!doc.documentElement || isLastNodeOfChunk(doc.documentElement)) {
     await wait();
   }
 
@@ -277,13 +261,26 @@ async function htmlStreamWalker(
 
       if (nextNode) options.onNextNode?.(nextNode);
 
-      while ((nextNode as Element)?.hasAttribute?.(IS_LAST_CHUNK)) {
-        lastNodeAdded = nextNode as Element;
+      while (isLastNodeOfChunk(nextNode as Element)) {
         await wait();
       }
 
       return nextNode;
     };
+  }
+
+  function isLastNodeOfChunk(node: Node) {
+    if (!streamInProgress) return false;
+    if (node.nextSibling) return false;
+
+    let parent = node.parentElement;
+
+    while (parent) {
+      if (parent.nextSibling) return false;
+      parent = parent.parentElement;
+    }
+
+    return true;
   }
 
   return {
@@ -296,5 +293,6 @@ async function htmlStreamWalker(
         window.lastDiffTransition = document.startViewTransition(v);
       } else v();
     },
+    [IS_LAST_NODE_OF_CHUNK]: isLastNodeOfChunk,
   };
 }
