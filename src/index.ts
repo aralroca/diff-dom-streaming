@@ -26,6 +26,7 @@ const APPLY_TRANSITION = 0;
 const FIRST_CHILD = 1;
 const NEXT_SIBLING = 2;
 const IS_LAST_NODE_OF_CHUNK = 3;
+const SPECIAL_TAGS = new Set(["HTML", "HEAD", "BODY"]);
 const wait = () => new Promise((resolve) => requestAnimationFrame(resolve));
 
 export default async function diff(
@@ -270,8 +271,13 @@ async function htmlStreamWalker(
   }
 
   function isLastNodeOfChunk(node: Node) {
-    if (!streamInProgress) return false;
-    if (node.nextSibling) return false;
+    if (!node || !streamInProgress || node.nextSibling) {
+      return false;
+    }
+
+    if (SPECIAL_TAGS.has(node.nodeName)) {
+      return !doc.body?.hasChildNodes?.();
+    }
 
     let parent = node.parentElement;
 
@@ -280,7 +286,7 @@ async function htmlStreamWalker(
       parent = parent.parentElement;
     }
 
-    return true;
+    return streamInProgress;
   }
 
   return {
