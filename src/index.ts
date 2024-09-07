@@ -25,15 +25,14 @@ const IS_LAST_CHUNK = "i-lc";
 const APPLY_TRANSITION = 0;
 const FIRST_CHILD = 1;
 const NEXT_SIBLING = 2;
-const decoder = new TextDecoder();
 const wait = () => new Promise((resolve) => requestAnimationFrame(resolve));
 
 export default async function diff(
   oldNode: Node,
-  reader: ReadableStreamDefaultReader,
+  stream: ReadableStream,
   options?: Options,
 ) {
-  const walker = await htmlStreamWalker(reader, options);
+  const walker = await htmlStreamWalker(stream, options);
   const newNode = walker.root!;
 
   if (oldNode.nodeType === DOCUMENT_TYPE) {
@@ -220,7 +219,7 @@ function getKey(node: Node) {
  * Utility that will walk a html stream and call a callback for each node.
  */
 async function htmlStreamWalker(
-  streamReader: ReadableStreamDefaultReader,
+  stream: ReadableStream,
   options: Options = {},
 ): Promise<Walker> {
   const doc = document.implementation.createHTMLDocument();
@@ -238,7 +237,16 @@ async function htmlStreamWalker(
 
   observer.observe(doc, { childList: true, subtree: true });
   doc.open();
-  streamReader.read().then(processChunk);
+  const decoderStream = new TextDecoderStream();
+  const decoderStreamReader = decoderStream.readable.getReader();
+
+  stream.pipeTo(decoderStream.writable).then(() => {
+    doc.close();
+    lastNodeAdded?.removeAttribute(IS_LAST_CHUNK);
+    observer.disconnect();
+  });
+
+  decoderStreamReader.read().then(processChunk);
 
   function processChunk({ done, value }: any) {
     if (done) {
@@ -248,8 +256,8 @@ async function htmlStreamWalker(
       return;
     }
 
-    doc.write(decoder.decode(value));
-    streamReader.read().then(processChunk);
+    doc.write(value);
+    decoderStreamReader.read().then(processChunk);
   }
 
   while (
