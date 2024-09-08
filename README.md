@@ -23,7 +23,7 @@
 
 The Diff DOM (Document Object Model) algorithm is used to compare two versions of the DOM, such as before and after an update on a web page. It aims to efficiently identify the changes between both DOMs, minimizing the number of manipulations required to update the user interface.
 
-The Diff DOM Streaming library extends the traditional Diff DOM algorithm by introducing support for comparing a DOM node with a streaming reader. This enables the library to process the changes incrementally as they occur during the diff process.
+The Diff DOM Streaming library extends the traditional Diff DOM algorithm by introducing support for comparing a DOM node with a stream. This enables the library to process the changes incrementally as they occur during the diff process.
 
 For more info, read this:
 
@@ -73,15 +73,15 @@ import diff from "https://unpkg.com/diff-dom-streaming@latest";
 ```ts
 const res = await fetch(/* some url */);
 
-// Diff between the current document and the reader:
-await diff(document, res.body.getReader());
+// Diff between the current document and the stream:
+await diff(document, res.body);
 ```
 
 ## API
 
-`diff(oldNode: Node, reader: ReadableStreamDefaultReader, options?: Options)`
+`diff(oldNode: Node, stream: ReadableStream<Uint8Array>, options?: Options): Promise<void>`
 
-This function performs a diffing operation between the `oldNode` and the DOM tree streamed through `reader`. It applies the necessary changes to update the `oldNode` accordingly. An optional `options` that include:
+This function performs a diffing operation between the `oldNode` and the DOM tree from a stream. It applies the necessary changes to update the `oldNode` accordingly. An optional `options` that include:
 
 ```ts
 type Options = {
@@ -115,7 +115,7 @@ The `diff-dom-streaming` library takes into account the `key` attribute for thes
 You can activate the View Transition API updating the DOM with this property:
 
 ```diff
-await diff(document, res.body.getReader(), {
+await diff(document, res.body, {
 + transition: true
 })
 ```
@@ -130,7 +130,7 @@ Many times it will make more sense to use a complete transition instead of incre
 
 ```diff
 + document.startViewTransition(async () => {
-await diff(document, res.body.getReader(), {
+await diff(document, res.body, {
 -  transition: true,
 });
 +});

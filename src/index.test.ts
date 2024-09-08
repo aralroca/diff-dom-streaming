@@ -103,8 +103,7 @@ describe("Diff test", () => {
 
     it("should error with invalid arguments", async () => {
       const res = new Response('<div id="test">hello world</div>');
-      const reader = res.body!.getReader();
-      expect(() => diff("hello world" as any, reader)).toThrow(Error);
+      expect(() => diff("hello world" as any, res.body!)).toThrow(Error);
     });
 
     it("should not do any DOM modification", async () => {
@@ -1678,7 +1677,6 @@ describe("Diff test", () => {
           },
         });
         const allMutations: any[] = [];
-        const reader = readable.getReader();
         const observer = new MutationObserver((mutations) => {
           allMutations.push(
             ...mutations.map((mutation, mutationIndex) => ({
@@ -1726,7 +1724,7 @@ describe("Diff test", () => {
             }
           : undefined;
 
-        await diff(document.documentElement!, reader, {
+        await diff(document.documentElement!, readable, {
           onNextNode: forEachStreamNode,
           transition: transition as boolean,
           shouldIgnoreNode(node: Node | null) {

@@ -1,6 +1,6 @@
 export default function diff(
   oldNode: Node,
-  reader: ReadableStreamDefaultReader,
+  stream: ReadableStream,
   options?: Options,
 ): Promise<void>;
 
