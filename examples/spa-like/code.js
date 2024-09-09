@@ -11,7 +11,7 @@ function spaNavigation(event) {
 
       if (res.ok) {
         const diffModule = await import(
-          "https://unpkg.com/diff-dom-streaming@0.6.0"
+          "https://unpkg.com/diff-dom-streaming@0.6.1"
         );
         const diff = diffModule.default;
         registerCurrentScripts();

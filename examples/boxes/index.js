@@ -1,4 +1,4 @@
-import diff from "https://unpkg.com/diff-dom-streaming@0.6.0";
+import diff from "https://unpkg.com/diff-dom-streaming@0.6.1";
 
 async function diffStreamReader(e) {
   e?.preventDefault();
