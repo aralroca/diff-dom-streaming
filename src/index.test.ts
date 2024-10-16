@@ -27,8 +27,8 @@ const diffCode = await transpiler.transform(
 const normalize = (t: string) =>
   t.replace(/\s*\n\s*/g, "").replaceAll("'", '"');
 
-describe("Diff test", () => {
-  let browser: Browser;
+describe("Diff test", async () => {
+  let browser = await engine.chrome.launch();
   let page: Page;
 
   beforeEach(async () => {
@@ -36,11 +36,11 @@ describe("Diff test", () => {
   });
 
   afterEach(async () => {
-    await page.close();
+    await page?.close();
   });
 
   afterAll(async () => {
-    await browser.close();
+    await browser?.close();
   });
 
   describe("Chrome View Transitions API", () => {
@@ -475,6 +475,527 @@ describe("Diff test", () => {
               nodeValue: null,
             },
           ],
+          tagName: "DIV",
+          type: "childList",
+        },
+      ]);
+    });
+
+    it("should diff children (data-cid) move by deleting", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
+        <div>
+          <a href="link">hello</a>
+          <b>text</b>
+          <i data-cid="test">text2</i>
+        </div>
+      `,
+        newHTMLStringChunks: [
+          "<div>",
+          '<a href="link2">hello2</a>',
+          '<i data-cid="test">text1</i>',
+          "</div>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
+      <html>
+        <head></head>
+        <body>
+          <div>
+            <a href="link2">hello2</a>
+            <i data-cid="test">text1</i>
+          </div>
+        </body>
+      </html>
+    `),
+      );
+
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "hello",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: "href",
+          oldValue: "link",
+          outerHTML: '<a href="link2">hello2</a>',
+          removedNodes: [],
+          tagName: "A",
+          type: "attributes",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link2">hello2</a><i data-cid="test">text2</i><b>text</b></div>',
+          removedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+              keepsExistingNodeReference: true,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link2">hello2</a><i data-cid="test">text2</i><b>text</b></div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "text2",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link2">hello2</a><i data-cid="test">text1</i></div>',
+          removedNodes: [
+            {
+              nodeName: "B",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+      ]);
+    });
+
+    it("should diff children (data-cid) move by shuffling", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
+        <div>
+          <a href="link">hello</a>
+          <b data-cid="test1">text</b>
+          <i data-cid="test2">text2</i>
+        </div>
+      `,
+        newHTMLStringChunks: [
+          "<div>",
+          '<a href="link">hello</a>',
+          '<i data-cid="test2">text2</i>',
+          '<b data-cid="test1">text</b>',
+          "</div>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
+      <html>
+        <head></head>
+        <body>
+          <div>
+            <a href="link">hello</a>
+            <i data-cid="test2">text2</i>
+            <b data-cid="test1">text</b>
+          </div>
+        </body>
+      </html>
+    `),
+      );
+
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link">hello</a><i data-cid="test2">text2</i><b data-cid="test1">text</b></div>',
+          removedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+              keepsExistingNodeReference: true,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link">hello</a><i data-cid="test2">text2</i><b data-cid="test1">text</b></div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "childList",
+        },
+      ]);
+    });
+
+    it("should diff children (data-cid) remove", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
+        <div>
+          <a href="link">hello</a>
+          <b>text</b>
+          <i data-cid="test">text2</i>
+        </div>
+      `,
+        newHTMLStringChunks: ["<div>", '<a href="link2">hello2</a>', "</div>"],
+      });
+      expect(newHTML).toBe(
+        normalize(`
+      <html>
+        <head></head>
+        <body>
+          <div>
+            <a href="link2">hello2</a>
+          </div>
+        </body>
+      </html>
+    `),
+      );
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "hello",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: "href",
+          oldValue: "link",
+          outerHTML: '<a href="link2">hello2</a>',
+          removedNodes: [],
+          tagName: "A",
+          type: "attributes",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML: '<div><a href="link2">hello2</a></div>',
+          removedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML: '<div><a href="link2">hello2</a></div>',
+          removedNodes: [
+            {
+              nodeName: "B",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+      ]);
+    });
+
+    it("should diff children (data-cid) insert new node", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
+        <div>
+          <a href="link">hello</a>
+          <i data-cid="test">text2</i>
+        </div>
+      `,
+        newHTMLStringChunks: [
+          "<div>",
+          '<a href="link2">hello2</a>',
+          "<b>test</b>",
+          '<i data-cid="test">text2</i>',
+          "</div>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
+      <html>
+        <head></head>
+        <body>
+          <div>
+            <a href="link2">hello2</a>
+            <b>test</b>
+            <i data-cid="test">text2</i>
+          </div>
+        </body>
+      </html>
+    `),
+      );
+
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "hello",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: "href",
+          oldValue: "link",
+          outerHTML: '<a href="link2">hello2</a>',
+          removedNodes: [],
+          tagName: "A",
+          type: "attributes",
+        },
+        {
+          addedNodes: [
+            {
+              keepsExistingNodeReference: false,
+              nodeName: "B",
+              nodeValue: null,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link2">hello2</a><b>test</b><i data-cid="test">text2</i></div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link2">hello2</a><b>test</b><i data-cid="test">text2</i></div>',
+          removedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [
+            {
+              keepsExistingNodeReference: true,
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link2">hello2</a><b>test</b><i data-cid="test">text2</i></div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "childList",
+        },
+      ]);
+    });
+
+    it("should diff children (data-cid) with xhtml namespaceURI", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
+        <div xmlns="http://www.w3.org/1999/xhtml">
+          <a href="link">hello</a>
+          <b>text</b>
+          <i data-cid="test">text2</i>
+        </div>
+      `,
+        newHTMLStringChunks: [
+          '<div xmlns="http://www.w3.org/1999/xhtml">',
+          '<a href="link2">hello2</a>',
+          '<i data-cid="test">text1</i>',
+          "</div>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
+      <html>
+        <head></head>
+        <body>
+          <div xmlns="http://www.w3.org/1999/xhtml">
+            <a href="link2">hello2</a>
+            <i data-cid="test">text1</i>
+          </div>
+        </body>
+      </html>
+    `),
+      );
+
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "hello",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: "href",
+          oldValue: "link",
+          outerHTML: '<a href="link2">hello2</a>',
+          removedNodes: [],
+          tagName: "A",
+          type: "attributes",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div xmlns="http://www.w3.org/1999/xhtml"><a href="link2">hello2</a><i data-cid="test">text2</i><b>text</b></div>',
+          removedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [
+            {
+              keepsExistingNodeReference: true,
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div xmlns="http://www.w3.org/1999/xhtml"><a href="link2">hello2</a><i data-cid="test">text2</i><b>text</b></div>',
+          removedNodes: [],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: "text2",
+          outerHTML: undefined,
+          removedNodes: [],
+          tagName: undefined,
+          type: "characterData",
+        },
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div xmlns="http://www.w3.org/1999/xhtml"><a href="link2">hello2</a><i data-cid="test">text1</i></div>',
+          removedNodes: [
+            {
+              nodeName: "B",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+      ]);
+    });
+
+    it("should diff children (data-cid) move (custom attribute)", async () => {
+      const [newHTML, mutations] = await testDiff({
+        oldHTMLString: `
+        <div>
+          <a href="link">hello</a>
+          <b data-cid="test1">text</b>
+          <i data-cid="test2">text2</i>
+        </div>
+      `,
+        newHTMLStringChunks: [
+          "<div>",
+          '<a href="link">hello</a>',
+          '<i data-cid="test2">text2</i>',
+          '<b data-cid="test1">text</b>',
+          "</div>",
+        ],
+      });
+      expect(newHTML).toBe(
+        normalize(`
+      <html>
+        <head></head>
+        <body>
+          <div>
+            <a href="link">hello</a>
+            <i data-cid="test2">text2</i>
+            <b data-cid="test1">text</b>
+          </div>
+        </body>
+      </html>
+    `),
+      );
+
+      expect(mutations).toEqual([
+        {
+          addedNodes: [],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link">hello</a><i data-cid="test2">text2</i><b data-cid="test1">text</b></div>',
+          removedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+            },
+          ],
+          tagName: "DIV",
+          type: "childList",
+        },
+        {
+          addedNodes: [
+            {
+              nodeName: "I",
+              nodeValue: null,
+              keepsExistingNodeReference: true,
+            },
+          ],
+          attributeName: null,
+          oldValue: null,
+          outerHTML:
+            '<div><a href="link">hello</a><i data-cid="test2">text2</i><b data-cid="test1">text</b></div>',
+          removedNodes: [],
           tagName: "DIV",
           type: "childList",
         },
