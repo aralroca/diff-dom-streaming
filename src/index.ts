@@ -207,12 +207,7 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
 }
 
 function getKey(node: Node) {
-  // data-cid fixes navigating with elements with registered server actions in Brisa:
-  // https://github.com/brisa-build/brisa/issues/558
-  for (const attr of ["key", "id", "data-cid"]) {
-    const value = (node as Element)?.getAttribute?.(attr);
-    if (value) return value;
-  }
+  return (node as Element)?.getAttribute?.("key") || (node as Element).id;
 }
 
 /**
