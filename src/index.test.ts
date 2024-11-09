@@ -1637,6 +1637,48 @@ describe("Diff test", () => {
     `),
       );
     });
+
+    it("should add WC that modifies the DOM on connect it", async () => {
+      const [newHTML] = await testDiff({
+        oldHTMLString: `
+        <div>foo</div>
+      `,
+        newHTMLStringChunks: ["<test-wc>foo</test-wc>"],
+        registerWC: true,
+      });
+
+      expect(newHTML).toBe(
+        normalize(`
+        <html>
+          <head></head>
+          <body>
+            <test-wc data-connected="true">foo</test-wc>
+          </body>
+        </html>
+      `),
+      );
+    });
+
+    it("should add WC that modifies the DOM on connect it (old with key)", async () => {
+      const [newHTML] = await testDiff({
+        oldHTMLString: `
+        <div key="old">foo</div>
+      `,
+        newHTMLStringChunks: ["<test-wc>foo</test-wc>"],
+        registerWC: true,
+      });
+
+      expect(newHTML).toBe(
+        normalize(`
+        <html>
+          <head></head>
+          <body>
+            <test-wc data-connected="true">foo</test-wc>
+          </body>
+        </html>
+      `),
+      );
+    });
   });
 
   async function testDiff({
@@ -1646,6 +1688,7 @@ describe("Diff test", () => {
     slowChunks = false,
     transition = false,
     ignoreId = false,
+    registerWC = false,
   }: {
     oldHTMLString: string;
     newHTMLStringChunks: string[];
@@ -1653,6 +1696,7 @@ describe("Diff test", () => {
     slowChunks?: boolean;
     transition?: boolean;
     ignoreId?: boolean;
+    registerWC?: boolean;
   }): Promise<[string, any[], Node[], boolean]> {
     await page.setContent(normalize(oldHTMLString));
     const [mutations, streamNodes, transitionApplied] = await page.evaluate(
@@ -1663,6 +1707,7 @@ describe("Diff test", () => {
         slowChunks,
         transition,
         ignoreId,
+        registerWC,
       ]) => {
         eval(diffCode as string);
         const encoder = new TextEncoder();
@@ -1724,6 +1769,15 @@ describe("Diff test", () => {
             }
           : undefined;
 
+        if (registerWC) {
+          class TestWC extends HTMLElement {
+            connectedCallback() {
+              this.setAttribute("data-connected", "true");
+            }
+          }
+          customElements.define("test-wc", TestWC);
+        }
+
         await diff(document.documentElement!, readable, {
           onNextNode: forEachStreamNode,
           transition: transition as boolean,
@@ -1747,6 +1801,7 @@ describe("Diff test", () => {
         slowChunks,
         transition,
         ignoreId,
+        registerWC,
       ],
     );
 

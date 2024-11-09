@@ -183,10 +183,6 @@ async function setChildNodes(oldParent: Node, newParent: Node, walker: Walker) {
       walker[APPLY_TRANSITION](() => oldParent.appendChild(insertedNode!));
     }
 
-    if (insertedNode?.nodeType === ELEMENT_TYPE) {
-      await updateNode(insertedNode, newNode, walker);
-    }
-
     newNode = (await walker[NEXT_SIBLING](newNode)) as ChildNode;
 
     // If we didn't insert a node this means we are updating an existing one, so we
